@@ -248,14 +248,14 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     if (choices.isArray() && choices[0]["message"]["content"].isString()) {
         string translatedText = choices[0]["message"]["content"].asString();
 
-        // 如果模型名称包含 gemini，则去掉输出结果后面的换行符（例如去掉末尾的 \n）
+        // If the model name contains "gemini", remove the newline character at the end of the output (e.g., remove the trailing \n).
         if (selected_model.find("gemini") != -1) {
             while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
                 translatedText = translatedText.substr(0, translatedText.length() - 1);
             }
         }
 
-        // 处理 RTL 语言
+        // Handle RTL (Right-to-Left) languages.
         if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
             translatedText = UNICODE_RLE + translatedText;
         }
