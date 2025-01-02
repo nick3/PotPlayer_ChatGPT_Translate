@@ -152,8 +152,8 @@ def main():
             exit(1)
 
     # 下载文件
-    as_file_path = os.path.join(target_path, "ChatGPTSubtitleTranslate.as")
-    ico_file_path = os.path.join(target_path, "ChatGPTSubtitleTranslate.ico")
+    as_file_path = os.path.join(target_path, "SubtitleTranslate - ChatGPT.as")
+    ico_file_path = os.path.join(target_path, "SubtitleTranslate - ChatGPT.ico")
 
     download_file(as_file_url, as_file_path, strings)
     download_file(ico_file_url, ico_file_path, strings)
