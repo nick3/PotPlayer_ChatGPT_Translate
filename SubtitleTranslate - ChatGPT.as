@@ -249,11 +249,10 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         string translatedText = choices[0]["message"]["content"].asString();
 
         // 如果模型名称包含 gemini，则去掉输出结果后面的换行符（例如去掉末尾的 \n）
-        if (selected_model.find("gemini") != -1) {
-            while (translatedText.endsWith("\n")) {
-                translatedText = translatedText.substr(0, translatedText.length() - 1);
-            }
+        if (selected_model.includes("gemini")) {
+           translatedText = translatedText.replace(/\n+$/, "");
         }
+
 
         // 处理 RTL 语言
         if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
