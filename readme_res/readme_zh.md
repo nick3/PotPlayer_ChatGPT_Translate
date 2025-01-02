@@ -2,6 +2,8 @@
 
 该插件将 OpenAI 的 ChatGPT API（或任何支持相同 API 调用方法的模型）集成到 PotPlayer 中，以实现准确且上下文感知的字幕翻译。与传统翻译工具不同，该方法会考虑上下文、习语和文化细微差别，使其成为翻译字幕的理想解决方案。
 
+ - 如果你觉得上下文花了太多的Token，你也可以选择[无上下文版本](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/tree/WithoutContextHandling)
+
 ---
 
 ## 安装
