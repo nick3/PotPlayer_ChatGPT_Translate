@@ -16,15 +16,15 @@ string GetDesc() {
 }
 
 string GetLoginTitle() {
-    return "{$CP949=OpenAI 모델 및 API 키 구성$}{$CP950=OpenAI 模型與 API 金鑰配置$}{$CP0=OpenAI Model and API Key Configuration$}";
+    return "{$CP949=OpenAI 모델 및 API 키 구성$}{$CP950=OpenAI 模型與 API 金鑰配置$}{$CP0=OpenAI Model + API URL and API Key Configuration$}";
 }
 
 string GetLoginDesc() {
-    return "{$CP949=모델 이름을 입력하고 API 키를 입력하십시오 (예: gpt-4o-mini).$}{$CP950=請輸入模型名稱並提供 API 金鑰（例如 gpt-4o-mini）。$}{$CP0=Please enter the model name and provide the API Key (e.g., gpt-4o-mini).$}";
+    return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如 gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}";
 }
 
 string GetUserText() {
-    return "{$CP949=모델 이름 (현재: " + selected_model + ")$}{$CP950=模型名稱 (目前: " + selected_model + ")$}{$CP0=Model Name (Current: " + selected_model + ")$}";
+    return "{$CP949=모델 이름 + API 주소 (현재: " + selected_model + " | " + apiUrl + ")$}{$CP950=模型名稱 + API 地址 (目前: " + selected_model + " | " + apiUrl + ")$}{$CP0=Model Name + API URL (Current: " + selected_model + " | " + apiUrl + ")$}";
 }
 
 string GetPasswordText() {
@@ -34,8 +34,8 @@ string GetPasswordText() {
 // Global Variables
 string api_key = "";
 string selected_model = "gpt-4o-mini"; // Default model
+string apiUrl = "https://api.openai.com/v1/chat/completions"; // Default API URL
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
-string apiUrl = "https://api.openai.com/v1/chat/completions"; // Added apiUrl definition
 
 // Supported Language List
 array<string> LangTable =
@@ -61,31 +61,55 @@ array<string> GetDstLangs() {
     return ret;
 }
 
-// Login Interface for entering model name and API Key
+// Login Interface for entering model name + API URL and API Key
 string ServerLogin(string User, string Pass) {
     // Trim whitespace
-    selected_model = User.Trim();
-    api_key = Pass.Trim();
+    User = User.Trim();
+    Pass = Pass.Trim();
 
-    // selected_model.MakeLower();
+    // 根据是否含有 '|' 分割模型名称与 API 源地址
+    int sepPos = User.find("|");
+    string userModel = "";
+    string customApiUrl = "";
+
+    if (sepPos != -1) {
+        userModel = User.substr(0, sepPos).Trim();
+        customApiUrl = User.substr(sepPos + 1).Trim();
+    } else {
+        // 仅提供了模型名称
+        userModel = User;
+        customApiUrl = "";
+    }
 
     // Validate model name
-    if (selected_model.empty()) {
+    if (userModel.empty()) {
         HostPrintUTF8("{$CP0=Model name not entered. Please enter a valid model name.$}\n");
-        selected_model = "gpt-4o-mini"; // Default to gpt-4o-mini
+        userModel = "gpt-4o-mini"; // Default to gpt-4o-mini
+    }
+
+    // 如果有自定义 API URL，则使用；否则使用默认的 apiUrl
+    if (!customApiUrl.empty()) {
+        apiUrl = customApiUrl;
+    } else {
+        apiUrl = "https://api.openai.com/v1/chat/completions"; // 保持默认
     }
 
     // Validate API Key
-    if (api_key.empty()) {
+    if (Pass.empty()) {
         HostPrintUTF8("{$CP0=API Key not configured. Please enter a valid API Key.$}\n");
         return "fail";
     }
 
-    // Save settings to temporary storage
+    // 保存到全局变量
+    selected_model = userModel;
+    api_key = Pass;
+
+    // 保存设置到临时存储
     HostSaveString("api_key", api_key);
     HostSaveString("selected_model", selected_model);
+    HostSaveString("apiUrl", apiUrl);
 
-    HostPrintUTF8("{$CP0=API Key and model name successfully configured.$}\n");
+    HostPrintUTF8("{$CP0=API Key and model name (plus API URL) successfully configured.$}\n");
     return "200 ok";
 }
 
@@ -93,8 +117,10 @@ string ServerLogin(string User, string Pass) {
 void ServerLogout() {
     api_key = "";
     selected_model = "gpt-4o-mini";
+    apiUrl = "https://api.openai.com/v1/chat/completions"; // 还原默认
     HostSaveString("api_key", "");
     HostSaveString("selected_model", selected_model);
+    HostSaveString("apiUrl", apiUrl);
     HostPrintUTF8("{$CP0=Successfully logged out.$}\n");
 }
 
@@ -116,7 +142,7 @@ string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
 // Function to estimate token count based on character length
 int EstimateTokenCount(const string &in text) {
     // Rough estimation: average 4 characters per token
-    return int(float(text.length()) / 4); // Fixed division error by casting to float
+    return int(float(text.length()) / 4);
 }
 
 // Function to get the model's maximum context length
@@ -138,9 +164,10 @@ int GetModelMaxTokens(const string &in modelName) {
 
 // Translation Function
 string Translate(string Text, string &in SrcLang, string &in DstLang) {
-    // Load API key and model name from temporary storage
+    // Load API key, model name, and apiUrl from temporary storage
     api_key = HostLoadString("api_key", "");
     selected_model = HostLoadString("selected_model", "gpt-4o-mini");
+    apiUrl = HostLoadString("apiUrl", "https://api.openai.com/v1/chat/completions");
 
     if (api_key.empty()) {
         HostPrintUTF8("{$CP0=API Key not configured. Please enter it in the settings menu.$}\n");
@@ -177,7 +204,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     // Limit the size of subtitleHistory to prevent it from growing indefinitely
-    if (subtitleHistory.length() > 1000) { // Increased limit for context
+    if (subtitleHistory.length() > 1000) {
         subtitleHistory.removeAt(0);
     }
 
@@ -196,7 +223,9 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     string escapedPrompt = JsonEscape(prompt);
 
     // Request data
-    string requestData = "{\"model\":\"" + selected_model + "\",\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}],\"max_tokens\":1000,\"temperature\":0}";
+    string requestData = "{\"model\":\"" + selected_model + "\","
+                         "\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}],"
+                         "\"max_tokens\":1000,\"temperature\":0}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
 
@@ -218,6 +247,15 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     JsonValue choices = Root["choices"];
     if (choices.isArray() && choices[0]["message"]["content"].isString()) {
         string translatedText = choices[0]["message"]["content"].asString();
+
+        // 如果模型名称包含 gemini，则去掉输出结果后面的换行符（例如去掉末尾的 \n）
+        if (selected_model.find("gemini") != -1) {
+            while (translatedText.endsWith("\n")) {
+                translatedText = translatedText.substr(0, translatedText.length() - 1);
+            }
+        }
+
+        // 处理 RTL 语言
         if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
             translatedText = UNICODE_RLE + translatedText;
         }
@@ -240,11 +278,12 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 // Plugin Initialization
 void OnInitialize() {
     HostPrintUTF8("{$CP0=ChatGPT translation plugin loaded.$}\n");
-    // Load model name and API Key from temporary storage (if saved)
+    // Load model name, API Key, and API URL from temporary storage (if saved)
     api_key = HostLoadString("api_key", "");
     selected_model = HostLoadString("selected_model", "gpt-4o-mini");
+    apiUrl = HostLoadString("apiUrl", "https://api.openai.com/v1/chat/completions");
     if (!api_key.empty()) {
-        HostPrintUTF8("{$CP0=Saved API Key and model name loaded.$}\n");
+        HostPrintUTF8("{$CP0=Saved API Key, model name, and API URL loaded.$}\n");
     }
 }
 
