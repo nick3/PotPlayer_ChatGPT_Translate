@@ -92,4 +92,4 @@ This level of contextual understanding sets these models apart from traditional 
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT Licence.
