@@ -201,7 +201,7 @@ string ServerLogin(string User, string Pass) {
     selected_model = userModel;
     api_key = Pass;
 
-    // 保存设置到临时存储
+    // 保存设置到永久存储
     HostSaveString("api_key", api_key);
     HostSaveString("selected_model", selected_model);
     HostSaveString("apiUrl", apiUrl);
