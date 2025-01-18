@@ -320,8 +320,8 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     string escapedPrompt = JsonEscape(prompt);
 
     // Request data
-    string requestData = "{\"model\":\"" + selected_model + "\","
-                         "\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}],"
+    string requestData = "{\"model\":\"" + selected_model + "\"," +
+                         "\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}]," +
                          "\"max_tokens\":1000,\"temperature\":0}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
