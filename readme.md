@@ -48,7 +48,7 @@ This plugin integrates OpenAI's ChatGPT API (or any model with the same API call
     
       Alternatively, you can specify a custom API URL in the format:  
       `Model Name|API Interface URL`.  
-      **Example**: `gpt-4o-mini|https://api.openai.com/v1/chat/completions/`  
+      **Example**: `gpt-4o-mini|https://api.openai.com/v1/chat/completions`  
     - **API Key**: Provide your API key.
 5. Set the source and target languages as needed.
 
