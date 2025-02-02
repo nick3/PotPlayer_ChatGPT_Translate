@@ -6,6 +6,7 @@
 
 This plugin integrates OpenAI's ChatGPT API (or any model with the same API calling method) into PotPlayer for accurate and context-aware subtitle translation. Unlike traditional translation tools, this approach considers context, idioms, and cultural nuances, making it the ideal solution for translating subtitles.
  - If you think the context-handling version consumes too many tokens, you can choose to [vision without context handling](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/tree/WithoutContextHandling)
+
 ---
 
 ## Readme in different languages
@@ -14,6 +15,10 @@ This plugin integrates OpenAI's ChatGPT API (or any model with the same API call
 
 ---
 
+## 📺 Bilibili Tutorial Video 👇(Click it)
+[![Watch on Bilibili](https://i1.hdslb.com/bfs/archive/88992bd0e80ff751771e78675a558b663a728028.jpg)](https://www.bilibili.com/video/BV1w9FzegEbM "Watch on Bilibili")
+
+---
 ## Installation
 
 ### Fully Automatic Installation (Recommended)
