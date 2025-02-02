@@ -12,7 +12,7 @@
 
 ### 完全自动安装（推荐）
 1. **下载安装程序**：  
-   [完全自动安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/exe_installer/installer.exe)  
+   [完全自动安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/exe_installer/installer.with.context.handling.exe)  
    *(安装程序是开源的。)*  
 2. **运行安装程序**：  
    - 双击 `installer.exe` 启动安装。  
