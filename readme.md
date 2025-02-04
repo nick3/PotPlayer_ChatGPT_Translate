@@ -6,7 +6,6 @@
 [![License][license-shield]]([license-url])
 
 <div align="right">
-  <strong>Readme in other languages:</strong>
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme_res/readme_zh.md">简体中文</a> | 
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
 </div>
