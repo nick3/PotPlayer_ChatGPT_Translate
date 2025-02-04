@@ -1,15 +1,15 @@
 <a id="readme-top"></a>
 
-[![Forks][forks-shield]][forks-url]  
-[![Stargazers][stars-shield]][stars-url]  
-[![Issues][issues-shield]][issues-url]  
-[![License][license-shield]][license-url]
+[![Forks][forks-shield]]([forks-url])
+[![Stargazers][stars-shield]]([stars-url])
+[![Issues][issues-shield]]([issues-url])
+[![License][license-shield]]([license-url])
 
 <div style="text-align: right;">
+  <strong>Readme in other languages:</strong>
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme_res/readme_zh.md">简体中文</a> | 
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
 </div>
-
 <div align="center">
   <h3 align="center">PotPlayer_ChatGPT_Translate 🚀</h3>
   <p align="center">
