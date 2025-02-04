@@ -5,11 +5,12 @@
 [![Issues][issues-shield]]([issues-url])
 [![License][license-shield]]([license-url])
 
-<div style="text-align: right;">
+<div align="right">
   <strong>Readme in other languages:</strong>
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme_res/readme_zh.md">简体中文</a> | 
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
 </div>
+
 <div align="center">
   <h3 align="center">PotPlayer_ChatGPT_Translate 🚀</h3>
   <p align="center">
@@ -50,7 +51,7 @@
 
 ## About The Project 💬
 
-**PotPlayer_ChatGPT_Translate** is a PotPlayer plugin that integrates the ChatGPT API to deliver real-time, context-aware subtitle translation. Unlike traditional translation tools, this plugin considers context, idioms, and cultural nuances to produce more accurate translations. The core of the project is implemented using AngleScript, leveraging both the ChatGPT API and PotPlayer API for deep integration.  
+**PotPlayer_ChatGPT_Translate** is a PotPlayer plugin that integrates the ChatGPT API to deliver real-time, context-aware subtitle translation. Unlike traditional translation tools, this plugin considers context, idioms, 和 cultural nuances to produce more accurate translations. The core of the project is implemented using AngleScript, leveraging both the ChatGPT API 和 PotPlayer API for deep integration.  
 It is also compatible with any AI model that uses the same API calling method as ChatGPT.
 
 ### 🔍 Google Translate vs ChatGPT Translate (Image Comparison)
