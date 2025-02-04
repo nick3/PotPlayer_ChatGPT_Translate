@@ -26,23 +26,23 @@
 <div>
   <h2>📑 目录</h2>
   <ol>
-    <li><a href="#about-the-project">关于本项目</a></li>
-    <li><a href="#video-tutorial">视频教程</a></li>
-    <li><a href="#built-with">技术栈</a></li>
+    <li><a href="#关于本项目">关于本项目</a></li>
+    <li><a href="#视频教程">视频教程</a></li>
+    <li><a href="#技术栈">技术栈</a></li>
     <li>
-      <a href="#installation">安装</a>
+      <a href="#安装">安装</a>
       <ol>
-        <li><a href="#fully-automatic-installation">全自动安装</a></li>
-        <li><a href="#manual-installation">手动安装</a></li>
+        <li><a href="#全自动安装">全自动安装</a></li>
+        <li><a href="#手动安装">手动安装</a></li>
       </ol>
     </li>
-    <li><a href="#configuration">配置</a></li>
-    <li><a href="#usage">使用方法</a></li>
-    <li><a href="#roadmap">开发计划</a></li>
-    <li><a href="#contributing">贡献指南</a></li>
-    <li><a href="#license">许可证</a></li>
-    <li><a href="#contact">联系方式</a></li>
-    <li><a href="#acknowledgments">鸣谢</a></li>
+    <li><a href="#配置">配置</a></li>
+    <li><a href="#使用方法">使用方法</a></li>
+    <li><a href="#开发计划">开发计划</a></li>
+    <li><a href="#贡献指南">贡献指南</a></li>
+    <li><a href="#许可证">许可证</a></li>
+    <li><a href="#联系方式">联系方式</a></li>
+    <li><a href="#鸣谢">鸣谢</a></li>
   </ol>
 </div>
 
