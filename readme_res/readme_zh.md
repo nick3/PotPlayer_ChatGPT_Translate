@@ -1,90 +1,124 @@
-# PotPlayer 的 ChatGPT 字幕翻译插件
+<a id="readme-top"></a>
 
-![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)
-![GitHub Stars](https://img.shields.io/github/stars/Felix3322/PotPlayer_Chatgpt_Translate?style=social)
-![GitHub Forks](https://img.shields.io/github/forks/Felix3322/PotPlayer_Chatgpt_Translate?style=social)
+[![Forks][forks-shield]]([forks-url])
+[![Stargazers][stars-shield]]([stars-url])
+[![Issues][issues-shield]]([issues-url])
+[![License][license-shield]]([license-url])
 
-该插件将 OpenAI 的 ChatGPT API（或任何支持相同 API 调用方法的模型）集成到 PotPlayer 中，以实现准确且上下文感知的字幕翻译。与传统翻译工具不同，该方法会考虑习语和文化细微差别，使其成为翻译字幕的理想解决方案。
+<div align="right">
+  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme_res/readme_zh.md">简体中文</a> | 
+  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
+</div>
 
----
+<div align="center">
+  <h3 align="center">PotPlayer_ChatGPT_Translate 🚀</h3>
+  <p align="center">
+    一个利用 ChatGPT API 进行实时、上下文感知字幕翻译的 PotPlayer 插件。✨
+  </p>
+  <p align="center">
+    <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues/new?labels=bug&template=bug-report---.md">🐞 报告问题</a>
+    &nbsp;&middot;&nbsp;
+    <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues/new?labels=enhancement&template=feature-request---.md">💡 请求新功能</a>
+  </p>
+</div>
 
-## 📺 Bilibili 教程视频 👇（点击观看）
-[![点击观看 Bilibili 视频](https://i1.hdslb.com/bfs/archive/88992bd0e80ff751771e78675a558b663a728028.jpg)](https://www.bilibili.com/video/BV1w9FzegEbM "点击观看 Bilibili 视频")
-
----
-
-## 安装
-
-### 完全自动安装（推荐）
-1. **下载安装程序**：  
-   [完全自动安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/exe_installer/installer.with.context.handling.exe)  
-   *(安装程序是开源的。)*  
-2. **运行安装程序**：  
-   - 双击 `installer.exe` 启动安装。  
-   - 安装程序会自动检测 PotPlayer 的安装路径并完成设置。  
-
----
-
-### 手动安装
-1. **下载 ZIP 文件**：  
-   从本仓库获取最新的 ZIP 文件。  
-2. **解压 ZIP 文件**：  
-   将文件解压到临时文件夹。  
-3. **复制文件**：  
-   将 `ChatGPTSubtitleTranslate.as` 和 `ChatGPTSubtitleTranslate.ico` 文件复制到以下目录：  
-   ```
-   C:\Program Files\DAUM\PotPlayer\Extension\Subtitle\Translate
-   ```  
-   如果你安装了 PotPlayer 的自定义路径，请相应修改该路径。
-
----
-
-## 配置
-
-1. 打开 PotPlayer 的 `偏好设置`（快捷键 `F5`）。
-2. 进入 `扩展 > 字幕翻译`。
-3. 选择 `ChatGPT Translate` 作为翻译插件。
-4. 配置插件：
-   1. **模型名称**：  
-        - 你可以仅输入模型名称，此时将使用官方默认的 API 接口 URL。  
-      **示例**：`gpt-4o-mini`  
-       - 或者，你可以输入模型名称和自定义 API 接口 URL，格式为：  
-      `模型名称|API 接口 URL`。  
-      **示例**：`gpt-4o-mini|https://api.openai.com/v1/chat/completions`  
-   2. **API 密钥**：提供你的 API 密钥。
-5. 根据需要设置源语言和目标语言。
+<!-- HTML 目录（Table of Contents） -->
+<div>
+  <h2>📑 目录</h2>
+  <ol>
+    <li><a href="#about-the-project">关于本项目</a></li>
+    <li><a href="#video-tutorial">视频教程</a></li>
+    <li><a href="#built-with">技术栈</a></li>
+    <li>
+      <a href="#installation">安装</a>
+      <ol>
+        <li><a href="#fully-automatic-installation">全自动安装</a></li>
+        <li><a href="#manual-installation">手动安装</a></li>
+      </ol>
+    </li>
+    <li><a href="#configuration">配置</a></li>
+    <li><a href="#usage">使用方法</a></li>
+    <li><a href="#roadmap">开发计划</a></li>
+    <li><a href="#contributing">贡献指南</a></li>
+    <li><a href="#license">许可证</a></li>
+    <li><a href="#contact">联系方式</a></li>
+    <li><a href="#acknowledgments">鸣谢</a></li>
+  </ol>
+</div>
 
 ---
 
-## 为什么选择 ChatGPT？
+## 关于本项目 💬
 
-通过结合上下文、成语和文化细节，该插件可以提供优质的字幕翻译。举个例子：
+**PotPlayer_ChatGPT_Translate** 是一个集成 ChatGPT API 的 PotPlayer 插件，可实现实时、上下文感知的字幕翻译。不同于传统的翻译工具，该插件能理解语境、习语和文化差异，提供更加精准的翻译。本项目使用 **AngleScript** 开发，并深度集成 **ChatGPT API** 和 **PotPlayer API**。
+### 该插件兼容所有使用与 ChatGPT 相同 API 调用方式的 AI 模型。
 
-- 输入：*“You're gonna old yeller my f**king universe.”*  
-  - **Google 翻译**：*“你要老了我他妈的宇宙吗?”* （不合逻辑）  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/readme_res/Google%20translate.png)
-  - **ChatGPT**：*“你要像《老黄犬》一样对待我的宇宙?”* （准确地引用了电影 *老黄犬*，传达了原意）。  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/readme_res/Chatgpt.png)
+## 🔍 谷歌翻译 vs ChatGPT 翻译（图片对比）
 
-这种上下文理解能力使支持该插件的模型在传统翻译工具中脱颖而出。
+ChatGPT 进行字幕翻译的关键优势在于能够理解上下文和文化背景。以下是对比结果：
 
----
+- **原始字幕：**  
+  > *"You're gonna old yeller my f**king universe."*
 
-## 功能
+- **谷歌翻译结果：**  
+  > *"你要老了我他妈的宇宙吗?"*  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/readme_res/Google%20translate.png)  
+  _(语义混乱，错误翻译)_
 
-- **文化细节**：保留成语和文化引用。  
-- **开源**：所有代码和工具完全开源，透明可靠。  
-- **高度可配置**：选择你喜欢的模型并设置自定义翻译参数。  
+- **ChatGPT 翻译结果：**  
+  > *"你要像《老黄犬》一样对待我的宇宙?"*  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/readme_res/Chatgpt.png)  
+  _(正确理解语境和文化背景)_
 
----
-
-## 注意事项
-
-- **需要 API 密钥**：请从提供的接口服务（如 [OpenAI](https://platform.openai.com/account/api-keys)）获取你的 API 密钥。  
-- **自定义路径**：对于自定义 PotPlayer 安装路径，请遵循手动安装说明。
+<p align="right">(<a href="#readme-top">返回顶部</a>)</p>
 
 ---
 
-## 许可证
+## 🎥 视频教程
 
-本项目采用 MIT 许可证。
+点击下方链接，在 B 站观看使用教程：
+
+<a href="https://www.bilibili.com/video/BV1w9FzegEbM" title="在 Bilibili 上观看">
+  <img src="https://i1.hdslb.com/bfs/archive/88992bd0e80ff751771e78675a558b663a728028.jpg" alt="在 Bilibili 上观看">
+</a>
+
+<p align="right">(<a href="#readme-top">返回顶部</a>)</p>
+
+---
+
+## 📄 许可证
+
+本项目基于 MIT 许可证开源。详细信息请查看 `LICENSE` 文件。
+
+<p align="right">(<a href="#readme-top">返回顶部</a>)</p>
+
+---
+
+## 📞 联系方式
+
+未来会在此添加联系方式。
+
+<p align="right">(<a href="#readme-top">返回顶部</a>)</p>
+
+---
+
+## 🙏 鸣谢
+
+- 感谢 OpenAI 提供强大的 ChatGPT API。
+- 感谢 PotPlayer 团队开发了出色的媒体播放器。
+- 感谢所有为本项目提供建议或贡献代码的开发者（贡献者名单将会更新）。
+
+<p align="right">(<a href="#readme-top">返回顶部</a>)</p>
+
+---
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[stars-shield]: https://img.shields.io/github/stars/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
+[stars-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/stargazers
+[forks-shield]: https://img.shields.io/github/forks/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
+[forks-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/network/members
+[issues-shield]: https://img.shields.io/github/issues/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
+[issues-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues
+[license-shield]: https://img.shields.io/github/license/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
+[license-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/LICENSE
+
