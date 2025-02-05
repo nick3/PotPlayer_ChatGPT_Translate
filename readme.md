@@ -138,7 +138,8 @@ Click below to watch the tutorial on Bilibili:
       `Model Name|API Interface URL`  
       **Example:** `gpt-4o-mini|https://api.openai.com/v1/chat/completions`
     - **API Key:** Enter your API key.
-5. Set the source and target languages as required.
+      > You can test your API Key using **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** to ensure it is valid.  
+5. Set the source 和 target languages as required.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
