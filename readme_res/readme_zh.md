@@ -134,12 +134,13 @@
 4. 配置插件：
     - **模型名称：**  
       你可以直接输入模型名称，此时将使用默认 API URL。  
-      **例如：** gpt-4o-mini  
+      **例如：** `gpt-4o-mini`
       
       或者，可以按照以下格式指定自定义 API URL：  
       模型名称|API 接口 URL  
-      **例如：** gpt-4o-mini|https://api.openai.com/v1/chat/completions
+      **例如：** `gpt-4o-mini|https://api.openai.com/v1/chat/completions`
     - **API 密钥：** 输入你的 API 密钥。
+      > 你可以在此页面 **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** 测试你的API Key是否有效.  
 5. 根据需要设置源语言和目标语言。
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
