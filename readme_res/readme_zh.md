@@ -137,7 +137,7 @@
       **例如：** `gpt-4o-mini`
       
       或者，可以按照以下格式指定自定义 API URL：  
-      模型名称|API 接口 URL  
+      `模型名称|API 接口 URL`  
       **例如：** `gpt-4o-mini|https://api.openai.com/v1/chat/completions`
     - **API 密钥：** 输入你的 API 密钥。
       > 你可以在此页面 **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** 测试你的API Key是否有效.  
