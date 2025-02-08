@@ -101,7 +101,7 @@ Click below to watch the tutorial on Bilibili:
 ### Fully Automatic Installation (Recommended) ⚡
 
 1. **Download the Installer:**  
-   [Fully Automatic Installer](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/releases/download/exe_installer/installer.exe)  
+   [Fully Automatic Installer](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/exe_installer/installer.with.context.handling.exe)  
    *(The installer is open source, so you can review the source code)*
 2. **Run the Installer:**  
    - Double-click `installer.exe` to start the installation.  
