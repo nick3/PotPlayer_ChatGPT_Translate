@@ -28,7 +28,7 @@
   <ol>
     <li><a href="#about-the-project">关于项目</a></li>
     <li><a href="#video-tutorial">视频教程</a></li>
-    <li><a href="#built-with">构建工具</a></li>
+    <li><a href="#built-with">技术栈</a></li>
     <li>
       <a href="#installation">安装</a>
       <ol>
