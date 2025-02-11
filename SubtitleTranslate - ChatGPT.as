@@ -11,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "0.0.0.12";
+    return "1.3";
 }
 
 string GetDesc() {
