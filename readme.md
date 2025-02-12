@@ -50,7 +50,7 @@
 
 ## About The Project 💬
 
-**PotPlayer_ChatGPT_Translate** is a PotPlayer plugin that integrates the ChatGPT API to deliver real-time, context-aware subtitle translation. Unlike traditional translation tools, this plugin considers context, idioms, 和 cultural nuances to produce more accurate translations. The core of the project is implemented using AngleScript, leveraging both the ChatGPT API 和 PotPlayer API for deep integration.  
+**PotPlayer_ChatGPT_Translate** is a PotPlayer plugin that integrates the ChatGPT API to deliver real-time, context-aware subtitle translation. Unlike traditional translation tools, this plugin considers context, idioms, and cultural nuances to produce more accurate translations. The core of the project is implemented using AngleScript, leveraging both the ChatGPT API and PotPlayer API for deep integration.  
 ### It is also compatible with any AI model that uses the same API calling method as ChatGPT.
 
 ## 🔍 Google Translate vs ChatGPT Translate (Image Comparison)
@@ -139,7 +139,7 @@ Click below to watch the tutorial on Bilibili:
       **Example:** `gpt-4o-mini|https://api.openai.com/v1/chat/completions`
     - **API Key:** Enter your API key.
       > You can test your API Key using **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** to ensure it is valid.  
-5. Set the source 和 target languages as required.
+5. Set the source and target languages as required.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
