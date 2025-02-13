@@ -11,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.4";
+    return "1.4.1";
 }
 
 string GetDesc() {
@@ -176,6 +176,7 @@ array<string> GetDstLangs() {
    Modified ServerLogin with API base detection logic.
    - For official API base (api.openai.com), if API key or model check fails, return error.
    - For third-party API base, if issues occur, return warning messages but still save settings.
+   - When processing user input, trim spaces; for API URL, remove trailing slash if present.
    - All returned messages use English only.
 */
 string ServerLogin(string User, string Pass) {
@@ -186,7 +187,7 @@ string ServerLogin(string User, string Pass) {
     string userModel = "";
     string customApiUrl = "";
     if (sepPos != -1) {
-        // Trim both sides to remove extra spaces around the separator
+        // 对分割符两边的输入进行 Trim 处理，去除多余空格
         userModel = User.substr(0, sepPos).Trim();
         customApiUrl = User.substr(sepPos + 1).Trim();
     } else {
@@ -197,7 +198,7 @@ string ServerLogin(string User, string Pass) {
         return "Model name not entered. Please enter a valid model name.\n";
     }
     if (!customApiUrl.empty()) {
-        // Remove trailing slash(es) from the URL if present
+        // 如果 URL 结尾有斜杠，直接去掉
         while (customApiUrl.length() > 0 && customApiUrl.substr(customApiUrl.length()-1, 1) == "/") {
             customApiUrl = customApiUrl.substr(0, customApiUrl.length()-1);
         }
@@ -221,8 +222,7 @@ string ServerLogin(string User, string Pass) {
         else
             verifyUrl = "https://api.openai.com/v1/models";
     } else {
-        // For third-party API base, ensure proper URL concatenation:
-        // Since we've removed trailing slash, always add "/models"
+        // 对于第三方 API base，直接在处理后的 URL 后面加上 "/models"
         verifyUrl = apiUrl + "/models";
     }
 
@@ -312,7 +312,7 @@ string JsonEscape(const string &in input) {
     output.replace("\n", "\\n");
     output.replace("\r", "\\r");
     output.replace("\t", "\\t");
-    output.replace("/", "\\/");
+    output.replace("/", "\\/");  // 转义斜杠，适配硅基流动的模型，例如 "xxx/xxx-xxx" 这样的模型名称
     return output;
 }
 
