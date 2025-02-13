@@ -1,5 +1,6 @@
 /*
     Real-time subtitle translation for PotPlayer using OpenAI ChatGPT API
+    (Without Context Support)
 */
 
 // Plugin Information Functions
@@ -7,11 +8,11 @@ string GetTitle() {
     return "{$CP949=ChatGPT 번역 (문맥 없음) $}"
          + "{$CP950=ChatGPT 翻譯 (無上下文) $}"
          + "{$CP936=ChatGPT 翻译 (无上下文) $}"
-        + "{$CP0=ChatGPT Translation (No Context) $}";
+        + "{$CP0=ChatGPT Translate (No Context) $}";
 }
 
 string GetVersion() {
-    return "1.3-wc";
+    return "1.4.1-wc";
 }
 
 string GetDesc() {
@@ -27,8 +28,8 @@ string GetLoginTitle() {
 
 string GetLoginDesc() {
     return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}"
-         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如 gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如 gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
          + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}";
 }
 
@@ -196,6 +197,9 @@ string ServerLogin(string User, string Pass) {
         return "Model name not entered. Please enter a valid model name.\n";
     }
     if (!customApiUrl.empty()) {
+        while (customApiUrl.length() > 0 && customApiUrl.substr(customApiUrl.length()-1, 1) == "/") {
+            customApiUrl = customApiUrl.substr(0, customApiUrl.length()-1);
+        }
         apiUrl = customApiUrl;
     } else {
         apiUrl = "https://api.openai.com/v1/chat/completions";
@@ -309,33 +313,10 @@ string JsonEscape(const string &in input) {
     output.replace("\n", "\\n");
     output.replace("\r", "\\r");
     output.replace("\t", "\\t");
+    output.replace("/", "\\/");  // Escape forward slash for model names with '/'
     return output;
 }
 
-// Global variables for storing previous subtitles (no longer used for context)
-array<string> subtitleHistory;
-string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
-
-// Function to estimate token count based on character length
-int EstimateTokenCount(const string &in text) {
-    return int(float(text.length()) / 4);
-}
-
-// Function to get the model's maximum context length
-int GetModelMaxTokens(const string &in modelName) {
-    if (modelName == "gpt-3.5-turbo")
-        return 4096;
-    else if (modelName == "gpt-3.5-turbo-16k")
-        return 16384;
-    else if (modelName == "gpt-4o")
-        return 128000;
-    else if (modelName == "gpt-4o-mini")
-        return 128000;
-    else
-        return 4096;
-}
-
-// Translation Function (context handling removed to save tokens)
 string Translate(string Text, string &in SrcLang, string &in DstLang) {
     api_key = HostLoadString("wc_gpt_api_key", "");
     selected_model = HostLoadString("wc_gpt_selected_model", "gpt-4o-mini");
@@ -408,8 +389,10 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     if (Root["error"]["message"].isString()) {
         string errorMessage = Root["error"]["message"].asString();
         HostPrintUTF8("API Error: " + errorMessage + "\n");
+        return "API Error: " + errorMessage;
     } else {
         HostPrintUTF8("Translation failed. Please check input parameters or API Key configuration.\n");
+        return "Translation failed. Please check input parameters or API Key configuration.";
     }
 
     return "";
