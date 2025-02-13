@@ -11,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.3";
+    return "1.4";
 }
 
 string GetDesc() {
@@ -186,6 +186,7 @@ string ServerLogin(string User, string Pass) {
     string userModel = "";
     string customApiUrl = "";
     if (sepPos != -1) {
+        // Trim both sides to remove extra spaces around the separator
         userModel = User.substr(0, sepPos).Trim();
         customApiUrl = User.substr(sepPos + 1).Trim();
     } else {
@@ -196,6 +197,10 @@ string ServerLogin(string User, string Pass) {
         return "Model name not entered. Please enter a valid model name.\n";
     }
     if (!customApiUrl.empty()) {
+        // Remove trailing slash(es) from the URL if present
+        while (customApiUrl.length() > 0 && customApiUrl.substr(customApiUrl.length()-1, 1) == "/") {
+            customApiUrl = customApiUrl.substr(0, customApiUrl.length()-1);
+        }
         apiUrl = customApiUrl;
     } else {
         apiUrl = "https://api.openai.com/v1/chat/completions";
@@ -216,11 +221,9 @@ string ServerLogin(string User, string Pass) {
         else
             verifyUrl = "https://api.openai.com/v1/models";
     } else {
-        int lastSlash = apiUrl.findLast("/");
-        if (lastSlash != -1)
-            verifyUrl = apiUrl.substr(0, lastSlash) + "/models";
-        else
-            verifyUrl = apiUrl + "/models";
+        // For third-party API base, ensure proper URL concatenation:
+        // Since we've removed trailing slash, always add "/models"
+        verifyUrl = apiUrl + "/models";
     }
 
     string verifyHeaders = "Authorization: Bearer " + Pass + "\nContent-Type: application/json";
@@ -309,6 +312,7 @@ string JsonEscape(const string &in input) {
     output.replace("\n", "\\n");
     output.replace("\r", "\\r");
     output.replace("\t", "\\t");
+    output.replace("/", "\\/");
     return output;
 }
 
