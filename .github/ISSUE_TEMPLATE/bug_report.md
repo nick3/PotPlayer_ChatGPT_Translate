@@ -1,4 +1,8 @@
+**This program has passed all tests successfully.**
+![Works on my machine](https://blog.codinghorror.com/content/images/uploads/2007/03/6a0120a85dcdae970b0128776ff992970c-pi.png)  
+
 ---
+
 name: Bug report
 about: Create a report to help us improve
 title: ''
