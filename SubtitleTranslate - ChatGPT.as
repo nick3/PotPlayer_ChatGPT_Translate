@@ -2,7 +2,6 @@
     Real-time subtitle translation for PotPlayer using OpenAI ChatGPT API
 */
 
-// Plugin Information Functions
 string GetTitle() {
     return "{$CP949=ChatGPT 번역$}"
          + "{$CP950=ChatGPT 翻譯$}"
@@ -15,7 +14,10 @@ string GetVersion() {
 }
 
 string GetDesc() {
-    return "Real-time subtitle translation using OpenAI ChatGPT.";
+    return "{$CP949=실시간 자막 번역 (OpenAI ChatGPT 사용)$}"
+         + "{$CP950=實時字幕翻譯 (使用 OpenAI ChatGPT)$}"
+         + "{$CP936=实时字幕翻译 (使用 OpenAI ChatGPT)$}"
+         + "{$CP0=Real-time subtitle translation using OpenAI ChatGPT.}$";
 }
 
 string GetLoginTitle() {
@@ -27,9 +29,9 @@ string GetLoginTitle() {
 
 string GetLoginDesc() {
     return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}"
-         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如 gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如 gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}";
+         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).}$";
 }
 
 string GetUserText() {
@@ -173,21 +175,19 @@ array<string> GetDstLangs() {
 }
 
 /*
-   Modified ServerLogin with API base detection logic.
-   - For official API base (api.openai.com), if API key or model check fails, return error.
-   - For third-party API base, if issues occur, return warning messages but still save settings.
-   - When processing user input, trim spaces; for API URL, remove trailing slash if present.
-   - All returned messages use English only.
+   ServerLogin:
+   - Process user input for model name, API URL, and API Key.
+   - Trim extra spaces and remove trailing slash from API URL.
+   - Verify API Key and model; return multi-language error messages if any issue.
 */
 string ServerLogin(string User, string Pass) {
     User = User.Trim();
     Pass = Pass.Trim();
-
     int sepPos = User.find("|");
     string userModel = "";
     string customApiUrl = "";
     if (sepPos != -1) {
-        // 对分割符两边的输入进行 Trim 处理，去除多余空格
+        // Trim both sides of the separator to remove extra spaces
         userModel = User.substr(0, sepPos).Trim();
         customApiUrl = User.substr(sepPos + 1).Trim();
     } else {
@@ -195,10 +195,13 @@ string ServerLogin(string User, string Pass) {
         customApiUrl = "";
     }
     if (userModel.empty()) {
-        return "Model name not entered. Please enter a valid model name.\n";
+        return "{$CP949=모델 이름이 입력되지 않았습니다. 올바른 모델 이름을 입력하십시오.$}"
+             + "{$CP950=未輸入模型名稱，請輸入有效的模型名稱。$}"
+             + "{$CP936=未输入模型名称，请输入有效的模型名称。$}"
+             + "{$CP0=Model name not entered. Please enter a valid model name.}$}";
     }
+    // Remove trailing slash(es) from API URL if present
     if (!customApiUrl.empty()) {
-        // 如果 URL 结尾有斜杠，直接去掉
         while (customApiUrl.length() > 0 && customApiUrl.substr(customApiUrl.length()-1, 1) == "/") {
             customApiUrl = customApiUrl.substr(0, customApiUrl.length()-1);
         }
@@ -207,13 +210,12 @@ string ServerLogin(string User, string Pass) {
         apiUrl = "https://api.openai.com/v1/chat/completions";
     }
     if (Pass.empty()) {
-        return "API Key not configured. Please enter a valid API Key.\n";
+        return "{$CP949=API 키가 구성되지 않았습니다. 올바른 API 키를 입력하십시오.$}"
+             + "{$CP950=未配置 API 金鑰，請輸入有效的 API 金鑰。$}"
+             + "{$CP936=未配置 API 密钥，请输入有效的 API 密钥。$}"
+             + "{$CP0=API Key not configured. Please enter a valid API Key.}$}";
     }
-
-    // Determine if using official API base
     bool isOfficial = (apiUrl.find("api.openai.com") != -1);
-
-    // Construct verify URL
     string verifyUrl = "";
     if (isOfficial) {
         int pos = apiUrl.find("chat/completions");
@@ -222,45 +224,65 @@ string ServerLogin(string User, string Pass) {
         else
             verifyUrl = "https://api.openai.com/v1/models";
     } else {
-        // 对于第三方 API base，直接在处理后的 URL 后面加上 "/models"
+        // For third-party API base, API URL already processed; simply append "/models"
         verifyUrl = apiUrl + "/models";
     }
-
     string verifyHeaders = "Authorization: Bearer " + Pass + "\nContent-Type: application/json";
     string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
     string retMsg = "";
     if (verifyResponse.empty()) {
         if (isOfficial)
-            return "API Key verification failed: No response from server. Please check network connection or API Key.\n";
+            return "{$CP949=API 키 검증 실패: 서버로부터 응답이 없습니다. 네트워크 연결 또는 API 키를 확인하십시오.$}"
+                 + "{$CP950=API 金鑰驗證失敗：伺服器未回應，請檢查網路連線或 API 金鑰。$}"
+                 + "{$CP936=API 密钥验证失败：服务器未响应，请检查网络连接或 API 密钥。$}"
+                 + "{$CP0=API Key verification failed: No response from server. Please check network connection or API Key.}$}";
         else
-            retMsg += "Warning: API Key verification failed: No response from server (third-party API base, possible false positive).\n";
+            retMsg += "{$CP949=경고: API 키 검증 실패 - 서버로부터 응답이 없습니다 (제3자 API, 오인 가능성 있음).$}"
+                    + "{$CP950=警告：API 金鑰驗證失敗 - 伺服器未回應（第三方 API，可能為誤報）。$}"
+                    + "{$CP936=警告：API 密钥验证失败 - 服务器未响应（第三方 API，可能为误报）。$}"
+                    + "{$CP0=Warning: API Key verification failed: No response from server (third-party API base, possible false positive).}$}";
     }
-
     JsonReader reader;
     JsonValue root;
     if (!reader.parse(verifyResponse, root)) {
         if (isOfficial)
-            return "Failed to parse API verification response.\n";
+            return "{$CP949=API 키 검증 응답 파싱 실패.$}"
+                 + "{$CP950=解析 API 金鑰驗證回應失敗。$}"
+                 + "{$CP936=解析 API 密钥验证响应失败。$}"
+                 + "{$CP0=Failed to parse API verification response.}$}";
         else
-            retMsg += "Warning: Failed to parse API verification response (third-party API base, possible false positive).\n";
+            retMsg += "{$CP949=경고: API 키 검증 응답 파싱 실패 (제3자 API, 오인 가능성 있음).$}"
+                    + "{$CP950=警告：解析 API 金鑰驗證回應失敗（第三方 API，可能為誤報）。$}"
+                    + "{$CP936=警告：解析 API 密钥验证响应失败（第三方 API，可能为误报）。$}"
+                    + "{$CP0=Warning: Failed to parse API verification response (third-party API base, possible false positive).}$}";
     }
-
     if (!root["error"].isNull()) {
         string errorMsg = root["error"]["message"].asString();
         if (isOfficial)
-            return "API Key verification failed: " + errorMsg + "\n";
+            return "{$CP949=API 키 검증 실패: " + errorMsg + "$}"
+                 + "{$CP950=API 金鑰驗證失敗: " + errorMsg + "$}"
+                 + "{$CP936=API 密钥验证失败: " + errorMsg + "$}"
+                 + "{$CP0=API Key verification failed: " + errorMsg + "$}";
         else
-            retMsg += "Warning: API Key verification failed: " + errorMsg + " (third-party API base, possible false positive).\n";
+            retMsg += "{$CP949=경고: API 키 검증 실패: " + errorMsg + " (제3자 API, 오인 가능성 있음).$}"
+                    + "{$CP950=警告：API 金鑰驗證失敗: " + errorMsg + "（第三方 API，可能為誤報）。$}"
+                    + "{$CP936=警告：API 密钥验证失败: " + errorMsg + "（第三方 API，可能为误报）。$}"
+                    + "{$CP0=Warning: API Key verification failed: " + errorMsg + " (third-party API base, possible false positive).}$}";
     }
-
     bool modelFound = false;
     bool dataValid = (!root["data"].isNull() && root["data"].isArray());
     if (isOfficial) {
         if (!dataValid)
-            return "Invalid response format during API Key verification (official API).\n";
+            return "{$CP949=공식 API에서 API 키 검증 중 응답 형식이 올바르지 않습니다.$}"
+                 + "{$CP950=官方 API 返回的 API 金鑰驗證回應格式不正確。$}"
+                 + "{$CP936=官方 API 返回的 API 密钥验证响应格式不正确。$}"
+                 + "{$CP0=Invalid response format during API Key verification (official API).}$}";
     } else {
         if (!dataValid) {
-            retMsg += "Warning: Unable to verify model list using third-party API base (possible false positive).\n";
+            retMsg += "{$CP949=경고: 제3자 API에서 모델 목록 검증 불가 (오인 가능성 있음).$}"
+                    + "{$CP950=警告：無法使用第三方 API 驗證模型列表（可能為誤報）。$}"
+                    + "{$CP936=警告：无法使用第三方 API 验证模型列表（可能为误报）。$}"
+                    + "{$CP0=Warning: Unable to verify model list using third-party API base (possible false positive).}$}";
             modelFound = true; // Skip model check
         }
     }
@@ -275,36 +297,37 @@ string ServerLogin(string User, string Pass) {
         }
         if (!modelFound) {
             if (isOfficial)
-                return "The specified model '" + userModel + "' is not available in the API. Please check the model name.\n";
+                return "{$CP949=지정된 모델 '" + userModel + "'이(가) API에서 사용할 수 없습니다. 모델 이름을 확인하십시오.$}"
+                     + "{$CP950=指定的模型 '" + userModel + "' 在 API 中不可用，請檢查模型名稱。$}"
+                     + "{$CP936=指定的模型 '" + userModel + "' 在 API 中不可用，请检查模型名称。$}"
+                     + "{$CP0=The specified model '" + userModel + "' is not available in the API. Please check the model name.}$}";
             else
-                retMsg += "Warning: The specified model '" + userModel + "' is not available in the API (third-party API base, possible false positive).\n";
+                retMsg += "{$CP949=경고: 지정된 모델 '" + userModel + "'이(가) API에서 사용할 수 없습니다 (제3자 API, 오인 가능성 있음).$}"
+                        + "{$CP950=警告：指定的模型 '" + userModel + "' 在 API 中不可用（第三方 API，可能為誤報）。$}"
+                        + "{$CP936=警告：指定的模型 '" + userModel + "' 在 API 中不可用（第三方 API，可能为误报）。$}"
+                        + "{$CP0=Warning: The specified model '" + userModel + "' is not available in the API (third-party API base, possible false positive).}$}";
         }
     }
-
-    // Save settings
     selected_model = userModel;
     api_key = Pass;
     HostSaveString("gpt_api_key", api_key);
     HostSaveString("gpt_selected_model", selected_model);
     HostSaveString("gpt_apiUrl", apiUrl);
     if (isOfficial)
-        return "200 ok";
+        return "{$CP949=200 ok$}"
+             + "{$CP950=200 ok$}"
+             + "{$CP936=200 ok$}"
+             + "{$CP0=200 ok$}";
     else
-        return retMsg + "API Key and model name (plus API URL) configured, but verification results may be false positives due to third-party API base.\n";
+        return retMsg + "{$CP949=설정 완료.$}"
+                      + "{$CP950=設定完成。$}"
+                      + "{$CP936=设置完成。$}"
+                      + "{$CP0=Configuration completed.}$}";
 }
 
-// Logout Interface to clear model name and API Key
-void ServerLogout() {
-    api_key = "";
-    selected_model = "gpt-4o-mini";
-    apiUrl = "https://api.openai.com/v1/chat/completions";
-    HostSaveString("gpt_api_key", "");
-    HostSaveString("gpt_selected_model", selected_model);
-    HostSaveString("gpt_apiUrl", apiUrl);
-    HostPrintUTF8("Successfully logged out.\n");
-}
-
-// JSON String Escape Function
+//
+// JSON String Escape Function (added slash escaping for model names with '/')
+//
 string JsonEscape(const string &in input) {
     string output = input;
     output.replace("\\", "\\\\");
@@ -312,20 +335,18 @@ string JsonEscape(const string &in input) {
     output.replace("\n", "\\n");
     output.replace("\r", "\\r");
     output.replace("\t", "\\t");
-    output.replace("/", "\\/");  // 转义斜杠，适配硅基流动的模型，例如 "xxx/xxx-xxx" 这样的模型名称
+    output.replace("/", "\\/");  // Escape forward slash
     return output;
 }
 
-// Global variables for storing previous subtitles
+// Global variable for storing subtitle history (for context support)
 array<string> subtitleHistory;
 string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
 
-// Function to estimate token count based on character length
 int EstimateTokenCount(const string &in text) {
     return int(float(text.length()) / 4);
 }
 
-// Function to get the model's maximum context length
 int GetModelMaxTokens(const string &in modelName) {
     if (modelName == "gpt-3.5-turbo")
         return 4096;
@@ -339,33 +360,28 @@ int GetModelMaxTokens(const string &in modelName) {
         return 4096;
 }
 
-// Translation Function
 string Translate(string Text, string &in SrcLang, string &in DstLang) {
     api_key = HostLoadString("gpt_api_key", "");
     selected_model = HostLoadString("gpt_selected_model", "gpt-4o-mini");
     apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
-
     if (api_key.empty()) {
-        HostPrintUTF8("API Key not configured. Please enter it in the settings menu.\n");
-        return "";
+        return "{$CP949=API 키가 구성되지 않았습니다. 설정 메뉴에서 입력하십시오.$}"
+             + "{$CP950=未配置 API 金鑰，請在設定選單中輸入。$}"
+             + "{$CP936=未配置 API 密钥，请在设置菜单中输入。$}"
+             + "{$CP0=API Key not configured. Please enter it in the settings menu.}$}";
     }
-
     if (DstLang.empty() || DstLang == "Auto Detect") {
-        HostPrintUTF8("Target language not specified. Please select a target language.\n");
-        return "";
+        return "{$CP949=목표 언어가 지정되지 않았습니다. 목표 언어를 선택하십시오.$}"
+             + "{$CP950=未指定目標語言，請選擇目標語言。$}"
+             + "{$CP936=未指定目标语言，请选择目标语言。$}"
+             + "{$CP0=Target language not specified. Please select a target language.}$}";
     }
-
     if (SrcLang.empty() || SrcLang == "Auto Detect") {
         SrcLang = "";
     }
-
     // Add the current subtitle to the history
     subtitleHistory.insertLast(Text);
-
-    // Get the model's maximum token limit
     int maxTokens = GetModelMaxTokens(selected_model);
-
-    // Build the context from the subtitle history
     string context = "";
     int tokenCount = EstimateTokenCount(Text);
     int i = int(subtitleHistory.length()) - 2;
@@ -378,13 +394,9 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         }
         i--;
     }
-
-    // Limit the size of subtitleHistory to prevent it from growing indefinitely
     if (subtitleHistory.length() > 1000) {
         subtitleHistory.removeAt(0);
     }
-
-    // Construct the prompt
     string prompt = "You are a professional translator. Please translate the following subtitle, output only translated results.";
     if (!SrcLang.empty()) {
         prompt += " from " + SrcLang;
@@ -394,32 +406,22 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         prompt += "Context:\n" + context + "\n";
     }
     prompt += "Subtitle to translate:\n" + Text;
-
-    // JSON escape
     string escapedPrompt = JsonEscape(prompt);
-
-    // Request data
     string requestData = "{\"model\":\"" + selected_model + "\"," +
                          "\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}]," +
                          "\"max_tokens\":1000,\"temperature\":0}";
-
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
-
-    // Send request
     string response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
     if (response.empty()) {
         HostPrintUTF8("Translation request failed. Please check network connection or API Key.\n");
         return "";
     }
-
-    // Parse response
     JsonReader Reader;
     JsonValue Root;
     if (!Reader.parse(response, Root)) {
         HostPrintUTF8("Failed to parse API response.\n");
         return "";
     }
-
     JsonValue choices = Root["choices"];
     if (choices.isArray() && choices[0]["message"]["content"].isString()) {
         string translatedText = choices[0]["message"]["content"].asString();
@@ -436,21 +438,25 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         DstLang = "UTF8";
         return translatedText.Trim();
     }
-
     if (Root["error"]["message"].isString()) {
         string errorMessage = Root["error"]["message"].asString();
         HostPrintUTF8("API Error: " + errorMessage + "\n");
+        return "{$CP949=API 오류: " + errorMessage + "$}"
+             + "{$CP950=API 錯誤: " + errorMessage + "$}"
+             + "{$CP936=API 错误: " + errorMessage + "$}"
+             + "{$CP0=API Error: " + errorMessage + "$}";
     } else {
         HostPrintUTF8("Translation failed. Please check input parameters or API Key configuration.\n");
+        return "{$CP949=번역 실패: 입력 매개변수 또는 API 키 구성을 확인하십시오.$}"
+             + "{$CP950=翻譯失敗：請檢查輸入參數或 API 金鑰配置。$}"
+             + "{$CP936=翻译失败：请检查输入参数或 API 密钥配置。$}"
+             + "{$CP0=Translation failed. Please check input parameters or API Key configuration.}$}";
     }
-
-    return "";
 }
 
-// Plugin Initialization
 void OnInitialize() {
     HostPrintUTF8("ChatGPT translation plugin loaded.\n");
-    // Load model name, API Key, and apiUrl from temporary storage (if saved)
+    // Load model name, API Key, and API URL from temporary storage (if saved)
     api_key = HostLoadString("gpt_api_key", "");
     selected_model = HostLoadString("gpt_selected_model", "gpt-4o-mini");
     apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
@@ -459,7 +465,6 @@ void OnInitialize() {
     }
 }
 
-// Plugin Finalization
 void OnFinalize() {
     HostPrintUTF8("ChatGPT translation plugin unloaded.\n");
 }
