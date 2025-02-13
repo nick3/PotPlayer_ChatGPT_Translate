@@ -16,6 +16,10 @@
     A PotPlayer plugin that leverages the ChatGPT API to provide real-time, context-aware subtitle translation. ✨
   </p>
   <p align="center">
+    <img src="https://blog.codinghorror.com/content/images/uploads/2007/03/6a0120a85dcdae970b0128776ff992970c-pi.png" alt="It works on my machine">
+  </p>
+<p align="center"><em>Works on my machine.</em></p>
+  <p align="center">
     <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues/new?labels=bug&template=bug-report---.md">🐞 Report Bug</a>
     &nbsp;&middot;&nbsp;
     <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues/new?labels=enhancement&template=feature-request---.md">💡 Request Feature</a>
