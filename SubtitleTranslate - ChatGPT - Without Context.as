@@ -336,13 +336,15 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         SrcLang = "";
     }
 
-    // Construct the prompt WITHOUT context to save tokens
-    string prompt = "You are a professional translator. Please translate the following subtitle, output only translated results.";
-    if (!SrcLang.empty()) {
-        prompt += " from " + SrcLang;
-    }
+    // Construct the prompt
+    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Ensure proper grammar, natural fluency, and cultural appropriateness in the translation. Output only the translated text without additional comments or explanations.\n\n";
+
+    // Specify source and target languages
+    prompt += "Translate from " + (SrcLang.empty() ? "Auto Detect" : SrcLang);
     prompt += " to " + DstLang + ".\n";
-    prompt += "Subtitle to translate:\n" + Text;
+
+    // Add subtitle text
+    prompt += "Subtitle:\n" + Text + "\n";
 
     // JSON escape the prompt
     string escapedPrompt = JsonEscape(prompt);
