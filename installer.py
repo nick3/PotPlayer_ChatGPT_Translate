@@ -2,7 +2,7 @@ import os
 import sys
 import ctypes
 import threading
-import requests
+import shutil
 import locale
 import win32com.client
 import tkinter as tk
@@ -93,6 +93,17 @@ LANGUAGE_STRINGS = {
     }
 }
 
+OFFLINE_FILES = {
+    "with_context": [
+        ("SubtitleTranslate - ChatGPT.as", "SubtitleTranslate - ChatGPT.as"),
+        ("SubtitleTranslate - ChatGPT.ico", "SubtitleTranslate - ChatGPT.ico")
+    ],
+    "without_context": [
+        ("SubtitleTranslate - ChatGPT - Without Context.as", "SubtitleTranslate - ChatGPT - Without Context.as"),
+        ("SubtitleTranslate - ChatGPT - Without Context.ico", "SubtitleTranslate - ChatGPT - Without Context.ico")
+    ]
+}
+
 # --------------------------
 # 辅助函数
 # --------------------------
@@ -145,18 +156,6 @@ def scan_drives(strings):
         if os.path.exists(potential_path):
             return potential_path
     return None
-
-def download_file(url, dest_path, update_callback):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        with open(dest_path, 'wb') as f:
-            f.write(response.content)
-        update_callback(f"Downloaded: {dest_path}")
-        return True
-    except Exception as e:
-        update_callback(f"Error downloading {url}: {e}")
-        return False
 
 # 自定义对话框：当文件冲突时先询问用户选择“我在升级”或“我想安装新的副本”
 # 如果选择“我想安装新的副本”，再弹出重命名对话框，提供“确认”和“点错了，我在升级”两个选项
@@ -287,7 +286,7 @@ class DirectoryFrame(tk.Frame):
 
     def on_show(self):
         strings = self.controller.strings
-        self.label.config(text=strings.get("select_install_dir", ""))
+        self.label.config(text=strings.get("select_install_dir", "Select the PotPlayer Translate directory:"))
         self.browse_button.config(text=strings.get("browse", "Browse"))
         self.back_button.config(text=strings.get("back", "Back"))
         self.next_button.config(text=strings.get("next", "Next"))
@@ -343,10 +342,10 @@ class VersionFrame(tk.Frame):
 
     def on_show(self):
         strings = self.controller.strings
-        self.label.config(text=strings.get("choose_install_version", ""))
-        self.radio_with.config(text=strings.get("with_context", ""))
+        self.label.config(text=strings.get("choose_install_version", "Choose the version to install:"))
+        self.radio_with.config(text=strings.get("with_context", "Installer with Context Handling"))
         self.with_desc.config(text=strings.get("with_context_description", ""))
-        self.radio_without.config(text=strings.get("without_context", ""))
+        self.radio_without.config(text=strings.get("without_context", "Installer without Context Handling"))
         self.without_desc.config(text=strings.get("without_context_description", ""))
         self.back_button.config(text=strings.get("back", "Back"))
         self.next_button.config(text=strings.get("next", "Next"))
@@ -367,10 +366,11 @@ class ProgressFrame(tk.Frame):
         button_frame.pack(side="bottom", pady=10)
         self.cancel_button = tk.Button(button_frame, text="", width=10, command=self.cancel_installation)
         self.cancel_button.pack()
+        self.install_thread = None
 
     def on_show(self):
         strings = self.controller.strings
-        self.label.config(text=strings.get("install_progress", ""))
+        self.label.config(text=strings.get("install_progress", "Installation Progress:"))
         self.cancel_button.config(text=strings.get("cancel", "Cancel"))
         self.text.config(state="normal")
         self.text.delete(1.0, tk.END)
@@ -389,37 +389,30 @@ class ProgressFrame(tk.Frame):
         install_dir = self.controller.install_dir
         version = self.controller.version
         strings = self.controller.strings
-        file_urls = {
-            "with_context": [
-                ("https://raw.githubusercontent.com/Felix3322/PotPlayer_Chatgpt_Translate/master/SubtitleTranslate%20-%20ChatGPT.as",
-                 "SubtitleTranslate - ChatGPT.as"),
-                ("https://raw.githubusercontent.com/Felix3322/PotPlayer_Chatgpt_Translate/master/SubtitleTranslate%20-%20ChatGPT.ico",
-                 "SubtitleTranslate - ChatGPT.ico")
-            ],
-            "without_context": [
-                ("https://raw.githubusercontent.com/Felix3322/PotPlayer_Chatgpt_Translate/master/SubtitleTranslate%20-%20ChatGPT%20-%20Without%20Context.as",
-                 "SubtitleTranslate - ChatGPT - Without Context.as"),
-                ("https://raw.githubusercontent.com/Felix3322/PotPlayer_Chatgpt_Translate/master/SubtitleTranslate%20-%20Chatgpt%20-%20Without%20Context.ico",
-                 "SubtitleTranslate - ChatGPT - Without Context.ico")
-            ]
-        }
-        for url, filename in file_urls.get(version, []):
-            dest_path = os.path.join(install_dir, filename)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        for src_file, dest_name in OFFLINE_FILES.get(version, []):
+            src_path = os.path.join(script_dir, src_file)
+            dest_path = os.path.join(install_dir, dest_name)
             if os.path.exists(dest_path):
-                decision = ask_conflict_resolution(filename, strings)
+                decision = ask_conflict_resolution(dest_name, strings)
                 # 如果返回"upgrade"，直接覆盖；如果返回非"upgrade"则视为新文件名
                 if decision == "upgrade":
                     pass  # 保持dest_path不变，直接覆盖
                 else:
-                    # decision为用户输入的新文件名
                     if not decision or decision.strip() == "":
-                        self.controller.update_progress(f"Installation aborted due to invalid name for {filename}.")
+                        self.controller.update_progress(f"Installation aborted due to invalid name for {dest_name}.")
                         return
                     dest_path = os.path.join(install_dir, decision)
-            self.controller.update_progress(f"Downloading {filename} ...")
-            success = download_file(url, dest_path, self.controller.update_progress)
-            if not success:
-                self.controller.update_progress(f"Installation failed for {filename}.")
+            self.controller.update_progress(f"Copying {src_file} ...")
+            if not os.path.exists(src_path):
+                self.controller.update_progress(f"Error: Missing file {src_file} in script directory.")
+                return
+            try:
+                shutil.copy(src_path, dest_path)
+                self.controller.update_progress(f"Installed {dest_name}.")
+            except Exception as e:
+                self.controller.update_progress(strings.get("installation_failed", "Installation failed: {}").format(e))
                 return
         self.controller.update_progress(strings.get("installation_complete", "Installation completed successfully!"))
         self.controller.after(2000, lambda: self.controller.show_frame("FinishFrame"))
@@ -438,7 +431,7 @@ class FinishFrame(tk.Frame):
 
     def on_show(self):
         strings = self.controller.strings
-        self.label.config(text=strings.get("installation_complete", ""))
+        self.label.config(text=strings.get("installation_complete", "Installation completed successfully!"))
         self.finish_button.config(text=strings.get("finish", "Finish"))
 
 # --------------------------
