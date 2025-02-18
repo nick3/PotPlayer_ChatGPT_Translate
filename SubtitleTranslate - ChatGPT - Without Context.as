@@ -12,7 +12,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.4.1-wc";
+    return "1.4.1.1-wc";
 }
 
 string GetDesc() {
@@ -381,6 +381,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         }
         // Handle right-to-left languages.
         if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
+            string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
             translatedText = UNICODE_RLE + translatedText;
         }
         SrcLang = "UTF8";
