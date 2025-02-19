@@ -8,11 +8,11 @@ string GetTitle() {
     return "{$CP949=ChatGPT 번역 (문맥 없음) $}"
          + "{$CP950=ChatGPT 翻譯 (無上下文) $}"
          + "{$CP936=ChatGPT 翻译 (无上下文) $}"
-        + "{$CP0=ChatGPT Translate (No Context) $}";
+         + "{$CP0=ChatGPT Translate (No Context) $}";
 }
 
 string GetVersion() {
-    return "1.4.1.1-wc";
+    return "1.4.2-wc";
 }
 
 string GetDesc() {
@@ -246,7 +246,8 @@ string ServerLogin(string User, string Pass) {
             retMsg += "Warning: Failed to parse API verification response (third-party API base, possible false positive).\n";
     }
 
-    if (!root["error"].isNull()) {
+    // Check if error exists and is valid
+    if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
         string errorMsg = root["error"]["message"].asString();
         if (isOfficial)
             return "API Key verification failed: " + errorMsg + "\n";
@@ -255,7 +256,7 @@ string ServerLogin(string User, string Pass) {
     }
 
     bool modelFound = false;
-    bool dataValid = (!root["data"].isNull() && root["data"].isArray());
+    bool dataValid = (root.isObject() && !root["data"].isNull() && root["data"].isArray());
     if (isOfficial) {
         if (!dataValid)
             return "Invalid response format during API Key verification (official API).\n";
@@ -266,12 +267,14 @@ string ServerLogin(string User, string Pass) {
         }
     }
     if (dataValid) {
-        for (int i = 0; ; i++) {
+        int dataSize = root["data"].size();
+        for (int i = 0; i < dataSize; i++) {
             JsonValue element = root["data"][i];
-            if (element.isNull()) break;
-            if (element["id"].asString() == userModel) {
-                modelFound = true;
-                break;
+            if (element.isObject() && element["id"].isString()) {
+                if (element["id"].asString() == userModel) {
+                    modelFound = true;
+                    break;
+                }
             }
         }
         if (!modelFound) {
@@ -371,25 +374,30 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         return "";
     }
 
-    JsonValue choices = Root["choices"];
-    if (choices.isArray() && choices[0]["message"]["content"].isString()) {
-        string translatedText = choices[0]["message"]["content"].asString();
-        if (selected_model.find("gemini") != -1) {
-            while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
-                translatedText = translatedText.substr(0, translatedText.length() - 1);
+    // Check for choices field safely
+    if (Root.isObject() && Root["choices"].isArray() && Root["choices"].size() > 0) {
+        JsonValue firstChoice = Root["choices"][0];
+        if (firstChoice.isObject() && firstChoice["message"].isObject() &&
+            firstChoice["message"]["content"].isString()) {
+            string translatedText = firstChoice["message"]["content"].asString();
+            if (selected_model.find("gemini") != -1) {
+                while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
+                    translatedText = translatedText.substr(0, translatedText.length() - 1);
+                }
             }
+            // Handle right-to-left languages.
+            if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
+                string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
+                translatedText = UNICODE_RLE + translatedText;
+            }
+            SrcLang = "UTF8";
+            DstLang = "UTF8";
+            return translatedText.Trim();
         }
-        // Handle right-to-left languages.
-        if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
-            string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
-            translatedText = UNICODE_RLE + translatedText;
-        }
-        SrcLang = "UTF8";
-        DstLang = "UTF8";
-        return translatedText.Trim();
     }
 
-    if (Root["error"]["message"].isString()) {
+    // Check if error exists
+    if (Root.isObject() && Root["error"].isObject() && Root["error"]["message"].isString()) {
         string errorMessage = Root["error"]["message"].asString();
         HostPrintUTF8("API Error: " + errorMessage + "\n");
         return "API Error: " + errorMessage;

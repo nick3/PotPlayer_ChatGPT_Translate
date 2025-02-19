@@ -11,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.4.1";
+    return "1.4.2";
 }
 
 string GetDesc() {
@@ -247,7 +247,8 @@ string ServerLogin(string User, string Pass) {
             retMsg += "Warning: Failed to parse API verification response (third-party API base, possible false positive).\n";
     }
 
-    if (!root["error"].isNull()) {
+    // Check for error object if exists
+    if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
         string errorMsg = root["error"]["message"].asString();
         if (isOfficial)
             return "API Key verification failed: " + errorMsg + "\n";
@@ -256,7 +257,7 @@ string ServerLogin(string User, string Pass) {
     }
 
     bool modelFound = false;
-    bool dataValid = (!root["data"].isNull() && root["data"].isArray());
+    bool dataValid = (root.isObject() && !root["data"].isNull() && root["data"].isArray());
     if (isOfficial) {
         if (!dataValid)
             return "Invalid response format during API Key verification (official API).\n";
@@ -267,12 +268,15 @@ string ServerLogin(string User, string Pass) {
         }
     }
     if (dataValid) {
-        for (int i = 0; ; i++) {
+        // Iterate safely over the array using size() and checking each element
+        int dataSize = root["data"].size();
+        for (int i = 0; i < dataSize; i++) {
             JsonValue element = root["data"][i];
-            if (element.isNull()) break;
-            if (element["id"].asString() == userModel) {
-                modelFound = true;
-                break;
+            if (!element.isNull() && element.isObject() && element["id"].isString()) {
+                if (element["id"].asString() == userModel) {
+                    modelFound = true;
+                    break;
+                }
             }
         }
         if (!modelFound) {
@@ -387,7 +391,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     // Construct the prompt
-    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Ensure proper grammar, natural fluency, and cultural appropriateness in the translation. Output only the translated text without additional comments or explanations.\n\n";
+    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Use any provided context only to enhance your translation quality, but do not include or output the context itself. Ensure proper grammar, natural fluency, and cultural appropriateness. Provide only the translated subtitle text without any additional comments, explanations, or context.\n\n";
 
     // Specify source and target languages
     prompt += "Translate from " + (SrcLang.empty() ? "Auto Detect" : SrcLang);
@@ -426,8 +430,12 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         return "";
     }
 
+    // Check if choices exists and is a valid array with required objects
     JsonValue choices = Root["choices"];
-    if (choices.isArray() && choices[0]["message"]["content"].isString()) {
+    if (choices.isArray() && choices.size() > 0 &&
+        choices[0].isObject() &&
+        choices[0]["message"].isObject() &&
+        choices[0]["message"]["content"].isString()) {
         string translatedText = choices[0]["message"]["content"].asString();
         if (selected_model.find("gemini") != -1) {
             while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
@@ -443,7 +451,10 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         return translatedText.Trim();
     }
 
-    if (Root["error"]["message"].isString()) {
+    // Check if error exists and has message
+    if (Root.isObject() &&
+        Root["error"].isObject() &&
+        Root["error"]["message"].isString()) {
         string errorMessage = Root["error"]["message"].asString();
         HostPrintUTF8("API Error: " + errorMessage + "\n");
         return "API Error: " + errorMessage;
