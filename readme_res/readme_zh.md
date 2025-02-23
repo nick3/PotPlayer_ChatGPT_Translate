@@ -193,7 +193,7 @@
 
 ## 联系方式 📞
 
-个人网站：[obanarchy.org](obanarchy.org)
+个人网站：[obanarchy.org](https://obanarchy.org)
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
 
