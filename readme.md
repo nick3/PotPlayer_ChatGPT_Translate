@@ -6,7 +6,7 @@
 [![License][license-shield]]([license-url])
 
 <div align="right">
-  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme_res/readme_zh.md">简体中文</a> | 
+  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/doc/readme_zh.md">简体中文</a> | 
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
 </div>
 
@@ -66,12 +66,12 @@ One key advantage of using ChatGPT for subtitle translation is its ability to un
 
 - **Google Translate Result:**  
   > *"你要老了我他妈的宇宙吗?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/readme_res/Google%20translate.png)  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/doc/Google%20translate.png)  
   _(Nonsensical and incorrect)_
 
 - **ChatGPT Translation Result:**  
   > *"你要像《老黄犬》一样对待我的宇宙?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/readme_res/Chatgpt.png)  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/doc/Chatgpt.png)  
   _(Correctly captures the reference and intended meaning)_
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
