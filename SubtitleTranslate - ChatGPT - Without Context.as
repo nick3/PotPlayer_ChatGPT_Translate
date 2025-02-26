@@ -12,7 +12,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.4.2-wc";
+    return "1.4.3-wc";
 }
 
 string GetDesc() {
@@ -340,7 +340,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     // Construct the prompt
-    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Ensure proper grammar, natural fluency, and cultural appropriateness in the translation. Output only the translated text without additional comments or explanations.\n\n";
+    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Use any provided context only to enhance your translation quality, but do not include or output the context. Ensure proper grammar, natural fluency, and cultural appropriateness. Provide only the translated subtitle text without any additional comments, explanations, or context.\n\n";
 
     // Specify source and target languages
     prompt += "Translate from " + (SrcLang.empty() ? "Auto Detect" : SrcLang);
