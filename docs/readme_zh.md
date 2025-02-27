@@ -26,6 +26,8 @@
   </p>
 </div>
 
+# 发行版中的蓝奏云镜像不可用。作者在海外，蓝奏云上传速度非常慢，每次都超时，望国内大佬代上传，可通过issue或obanarchy.org提供的联系方式联系到我。
+
 <!-- HTML 目录 (Table of Contents) -->
 <div>
   <h2>📑 目录</h2>
@@ -66,12 +68,12 @@
 
 - **Google 翻译结果：**  
   > *"你要老了我他妈的宇宙吗?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/doc/Google%20translate.png)  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Google%20translate.png)  
   _(意义不明且不正确)_
 
 - **ChatGPT 翻译结果：**  
   > *"你要像《老黄犬》一样对待我的宇宙?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/doc/Chatgpt.png)  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Chatgpt.png)  
   _(准确捕捉了引用及其意图)_
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
@@ -105,7 +107,7 @@
 ### 全自动安装（推荐） ⚡
 
 1. **下载安装程序：**  
-   [全自动安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.2/installer.v1.4.2.exe)  
+   [安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.3/installer.v1.4.3.exe)  
    *(安装程序是开源的，你可以查看其源码)*
 2. **运行安装程序：**  
    - 双击 installer.exe 启动安装。  
