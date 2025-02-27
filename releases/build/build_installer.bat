@@ -1,0 +1,1 @@
+pyinstaller -F -w --clean --add-data "SubtitleTranslate - ChatGPT.as;." --add-data "SubtitleTranslate - ChatGPT.ico;." --add-data "SubtitleTranslate - ChatGPT - Without Context.as;." --add-data "SubtitleTranslate - ChatGPT - Without Context.ico;." --distpath ".\Latest_Installer" installer.py
