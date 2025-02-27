@@ -390,27 +390,29 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         subtitleHistory.removeAt(0);
     }
 
-    // Construct the prompt
-    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Use any provided context only to enhance your translation quality, but do not include or output the context. Ensure proper grammar, natural fluency, and cultural appropriateness. Provide only the translated subtitle text without any additional comments, explanations, or context.\n\n";
+    // System message: Strict instructions to prevent context leakage
+    string systemMsg = "You are a professional subtitle translator. "
+                       "Your task is to translate subtitles accurately while ensuring natural fluency and cultural appropriateness. "
+                       "DO NOT include any context in your response. "
+                       "If context is provided, use it internally for better translation, but NEVER mention, reference, or output it directly.";
 
-    // Specify source and target languages
-    prompt += "Translate from " + (SrcLang.empty() ? "Auto Detect" : SrcLang);
-    prompt += " to " + DstLang + ". Use the context to provide better translation.\n";
+    // Construct user message
+    string userMsg = "Translate the following subtitle from " + (SrcLang.empty() ? "Auto Detect" : SrcLang) +
+                     " to " + DstLang + ".\n\n"
+                     "Subtitle:\n" + Text;
 
-    // Add subtitle text
-    prompt += "Subtitle:\n" + Text + "\n";
-
-    // Include context if available
     if (!context.empty()) {
-        prompt += "Relevant Context:\n" + context + "\n";
+        systemMsg += "\n\n[Background Context for Better Translation (DO NOT OUTPUT)]:\n" + context;
     }
 
     // JSON escape
-    string escapedPrompt = JsonEscape(prompt);
+    string escapedSystemMsg = JsonEscape(systemMsg);
+    string escapedUserMsg = JsonEscape(userMsg);
 
     // Request data
-    string requestData = "{\"model\":\"" + selected_model + "\"," +
-                         "\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}]," +
+    string requestData = "{\"model\":\"" + selected_model + "\","
+                         "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"},"
+                         "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}],"
                          "\"max_tokens\":1000,\"temperature\":0}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";

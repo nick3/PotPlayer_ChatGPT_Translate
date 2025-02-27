@@ -6,7 +6,7 @@
 [![License][license-shield]]([license-url])
 
 <div align="right">
-  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/doc/readme_zh.md">简体中文</a> | 
+  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/readme_zh.md">简体中文</a> | 
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
 </div>
 
@@ -26,7 +26,7 @@
   </p>
 </div>
 
-# 发行版中的蓝奏云镜像不可用。作者在海外，蓝奏云上传速度非常慢，每次都超时，望国内大佬代上传，可通过issue或obanarchy.org提供的联系方式联系到我。
+# 发行版中的蓝奏云镜像不可用。作者在海外，蓝奏云上传速度非常慢，每次都超时。望国内大佬代上传，可通过issue或[obanarchy.org](https://obanarchy.org)提供的联系方式联系到我。
 
 <!-- HTML 目录 (Table of Contents) -->
 <div>
@@ -59,7 +59,7 @@
 **PotPlayer_ChatGPT_Translate** 是一个 PotPlayer 插件，它整合了 ChatGPT API，以实现实时、上下文感知的字幕翻译。与传统翻译工具不同，该插件能够考虑上下文、惯用语和文化差异，从而提供更准确的翻译。项目的核心部分使用 AngleScript 实现，并结合了 ChatGPT API 与 PotPlayer API 实现深度集成。  
 ### 该插件同样兼容任何使用与 ChatGPT 相同 API 调用方式的 AI 模型。
 
-## 🔍 Google 翻译 vs ChatGPT 翻译（图像对比）
+## 🔍 Google 翻译 vs ChatGPT 翻译
 
 使用 ChatGPT 进行字幕翻译的一大优势在于它能够理解上下文和文化参考。请看下面的对比：
 
@@ -73,8 +73,23 @@
 
 - **ChatGPT 翻译结果：**  
   > *"你要像《老黄犬》一样对待我的宇宙?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Chatgpt.png)  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/ChatGPT.png)  
   _(准确捕捉了引用及其意图)_
+
+##  🧐 ChatGPT 无上下文 vs ChatGPT 有上下文对比
+
+- **原始字幕：**  
+  > *"But being one in real life is even better."*
+
+- **ChatGPT 翻译结果（无上下文）：**  
+  > *"但是，在现实生活中成为一个人甚至更好。"*  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/without%20context.png)  
+  _(字面翻译，未能体现隐含意义)_
+
+- **ChatGPT 翻译结果（有上下文）：**  
+  > *"但在现实生活中成为一个反派更好。"*  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/using%20context.png)  
+  _(准确捕捉语境)_
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
 
@@ -107,7 +122,7 @@
 ### 全自动安装（推荐） ⚡
 
 1. **下载安装程序：**  
-   [安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.3/installer.v1.4.3.exe)  
+   [安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.4/installer.v1.4.4.exe)  
    *(安装程序是开源的，你可以查看其源码)*
 2. **运行安装程序：**  
    - 双击 installer.exe 启动安装。  

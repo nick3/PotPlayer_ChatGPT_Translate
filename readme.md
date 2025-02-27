@@ -26,7 +26,7 @@
   </p>
 </div>
 
-# 发行版中的蓝奏云镜像不可用。作者在海外，蓝奏云上传速度非常慢，每次都超时，望国内大佬代上传，可通过issue或obanarchy.org提供的联系方式联系到我。
+# 发行版中的蓝奏云镜像不可用。作者在海外，蓝奏云上传速度非常慢，每次都超时。望国内大佬代上传，可通过issue或[obanarchy.org](https://obanarchy.org)提供的联系方式联系到我。
 
 <!-- HTML Directory (Table of Contents) -->
 <div>
@@ -56,10 +56,10 @@
 
 ## About The Project 💬
 
-**PotPlayer_ChatGPT_Translate** is a PotPlayer plugin that integrates the ChatGPT API to deliver real-time, context-aware subtitle translation. Unlike traditional translation tools, this plugin considers context, idioms, and cultural nuances to produce more accurate translations. The core of the project is implemented using AngleScript, leveraging both the ChatGPT API and PotPlayer API for deep integration.  
-### It is also compatible with any AI model that uses the same API calling method as ChatGPT.
+**PotPlayer_ChatGPT_Translate** is a PotPlayer plugin that integrates the ChatGPT API to deliver real-time, context-aware subtitle translation. Unlike traditional translation tools, this plugin considers context, idioms, and cultural nuances to produce more accurate translations. The core of the project is implemented using AngleScript, leveraging both the ChatGPT API and PotPlayer API for deep integration.
+### This plugin is also compatible with any AI model that follows the same API call format as ChatGPT.
 
-## 🔍 Google Translate vs ChatGPT Translate (Image Comparison)
+## 🔍 Google Translate vs ChatGPT Translate
 
 One key advantage of using ChatGPT for subtitle translation is its ability to understand context and cultural references. Compare the following results:
 
@@ -73,8 +73,23 @@ One key advantage of using ChatGPT for subtitle translation is its ability to un
 
 - **ChatGPT Translation Result:**  
   > *"你要像《老黄犬》一样对待我的宇宙?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Chatgpt.png)  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/ChatGPT.png)  
   _(Correctly captures the reference and intended meaning)_
+
+## 🧐 ChatGPT Without Context vs. ChatGPT With Context Comparison
+
+- **Original Subtitle:**  
+  > *"But being one in real life is even better."*
+
+- **ChatGPT Translation (Without Context):**  
+  > *"但是，在现实生活中成为一个人甚至更好。"*  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/without%20context.png)  
+  _(Literal translation, failing to capture the implied meaning)_
+
+- **ChatGPT Translation (With Context):**  
+  > *"但在现实生活中成为一个反派更好。"*  
+  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/using%20context.png)  
+  _(Accurately capturing the intended context)_
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -107,7 +122,7 @@ Click below to watch the tutorial on Bilibili:
 ### Fully Automatic Installation (Recommended) ⚡
 
 1. **Download the Installer:**  
-   [Installer](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.2/installer.v1.4.2.exe)  
+   [Installer](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.4/installer.v1.4.4.exe)  
    *(The installer is open source, so you can review the source code)*
 2. **Run the Installer:**  
    - Double-click `installer.exe` to start the installation.  
@@ -193,7 +208,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact 📞
 
-个人网站：[obanarchy.org](https://obanarchy.org)
+Personal website: [obanarchy.org](https://obanarchy.org)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
