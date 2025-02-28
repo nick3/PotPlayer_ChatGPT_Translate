@@ -173,12 +173,7 @@ array<string> GetDstLangs() {
     return ret;
 }
 
-/*
-   Modified ServerLogin with API base detection logic.
-   - For official API base (api.openai.com), if API key or model check fails, return error.
-   - For third-party API base, if issues occur, return warning messages but still save settings.
-   - All returned messages use English only.
-*/
+// API Key and API Base verification process
 string ServerLogin(string User, string Pass) {
     User = User.Trim();
     Pass = Pass.Trim();
@@ -187,6 +182,7 @@ string ServerLogin(string User, string Pass) {
     string userModel = "";
     string customApiUrl = "";
     if (sepPos != -1) {
+        // Trim both sides of the separator to remove extra spaces
         userModel = User.substr(0, sepPos).Trim();
         customApiUrl = User.substr(sepPos + 1).Trim();
     } else {
@@ -196,6 +192,7 @@ string ServerLogin(string User, string Pass) {
     if (userModel.empty()) {
         return "Model name not entered. Please enter a valid model name.\n";
     }
+    // Remove trailing slash(es) from API URL if present
     if (!customApiUrl.empty()) {
         while (customApiUrl.length() > 0 && customApiUrl.substr(customApiUrl.length()-1, 1) == "/") {
             customApiUrl = customApiUrl.substr(0, customApiUrl.length()-1);
@@ -231,10 +228,38 @@ string ServerLogin(string User, string Pass) {
     string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
     string retMsg = "";
     if (verifyResponse.empty()) {
-        if (isOfficial)
-            return "API Key verification failed: No response from server. Please check network connection or API Key.\n";
-        else
-            retMsg += "Warning: API Key verification failed: No response from server (third-party API base, possible false positive).\n";
+        if (apiUrl.length() >= 3 && apiUrl.substr(apiUrl.length()-3, 3) == "/v1") {
+            apiUrl = apiUrl + "/chat/completions";
+            if (isOfficial) {
+                int pos = apiUrl.find("chat/completions");
+                if (pos != -1)
+                    verifyUrl = apiUrl.substr(0, pos) + "models";
+                else
+                    verifyUrl = apiUrl + "/models";
+            } else {
+                int lastSlash = apiUrl.findLast("/");
+                if (lastSlash != -1)
+                    verifyUrl = apiUrl.substr(0, lastSlash) + "/models";
+                else
+                    verifyUrl = apiUrl + "/models";
+            }
+            // retry
+            verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
+            if (!verifyResponse.empty()) {
+                retMsg += "Warning: Your API base was entered incorrectly; it has been automatically corrected to: " + apiUrl + "\n";
+                HostSaveString("gpt_apiUrl", apiUrl);
+            } else {
+                if (isOfficial)
+                    return "API Key verification failed: No response from server even after auto-correction. Please check network connection or API Key.\n";
+                else
+                    retMsg += "Warning: No response from server after auto-correction. (Third-party API base)\n";
+            }
+        } else {
+            if (isOfficial)
+                return "API Key verification failed: No response from server. Please check network connection or API Key.\n";
+            else
+                retMsg += "Warning: No response from server. (Third-party API base)\n";
+        }
     }
 
     JsonReader reader;
@@ -243,16 +268,34 @@ string ServerLogin(string User, string Pass) {
         if (isOfficial)
             return "Failed to parse API verification response.\n";
         else
-            retMsg += "Warning: Failed to parse API verification response (third-party API base, possible false positive).\n";
+            retMsg += "Warning: Failed to parse API verification response (Third-party API base, possible false positive).\n";
     }
 
-    // Check if error exists and is valid
+    // Try sending a message to the model
     if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
         string errorMsg = root["error"]["message"].asString();
-        if (isOfficial)
+        string testSystemMsg = "You are a test assistant.";
+        string testUserMsg = "Hello";
+        string escapedTestSystemMsg = JsonEscape(testSystemMsg);
+        string escapedTestUserMsg = JsonEscape(testUserMsg);
+        string testRequestData = "{\"model\":\"" + selected_model + "\","
+                                 "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
+                                 "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
+                                 "\"max_tokens\":1,\"temperature\":0}";
+        string testResponse = HostUrlGetString(apiUrl, UserAgent, verifyHeaders, testRequestData);
+        if (!testResponse.empty()) {
+            JsonReader testReader;
+            JsonValue testRoot;
+            if (testReader.parse(testResponse, testRoot)) {
+                if (!(testRoot.isObject() && testRoot["choices"].isArray() && testRoot["choices"].size() > 0)) {
+                    return "API Key verification failed: " + errorMsg + "\n";
+                }
+            } else {
+                return "API Key verification failed: " + errorMsg + "\n";
+            }
+        } else {
             return "API Key verification failed: " + errorMsg + "\n";
-        else
-            retMsg += "Warning: API Key verification failed: " + errorMsg + " (third-party API base, possible false positive).\n";
+        }
     }
 
     bool modelFound = false;
@@ -267,10 +310,11 @@ string ServerLogin(string User, string Pass) {
         }
     }
     if (dataValid) {
+        // Iterate safely over the array using size() and checking each element
         int dataSize = root["data"].size();
         for (int i = 0; i < dataSize; i++) {
             JsonValue element = root["data"][i];
-            if (element.isObject() && element["id"].isString()) {
+            if (!element.isNull() && element.isObject() && element["id"].isString()) {
                 if (element["id"].asString() == userModel) {
                     modelFound = true;
                     break;
@@ -281,20 +325,21 @@ string ServerLogin(string User, string Pass) {
             if (isOfficial)
                 return "The specified model '" + userModel + "' is not available in the API. Please check the model name.\n";
             else
-                retMsg += "Warning: The specified model '" + userModel + "' is not available in the API (third-party API base, possible false positive).\n";
+                retMsg += "Warning: The specified model '" + userModel + "' is not available in the API (Third-party API base, possible false positive).\n";
         }
     }
 
     // Save settings
     selected_model = userModel;
     api_key = Pass;
-    HostSaveString("wc_gpt_api_key", api_key);
-    HostSaveString("wc_gpt_selected_model", selected_model);
-    HostSaveString("wc_gpt_apiUrl", apiUrl);
+    HostSaveString("gpt_api_key", api_key);
+    HostSaveString("gpt_selected_model", selected_model);
+    HostSaveString("gpt_apiUrl", apiUrl);
     if (isOfficial)
         return "200 ok";
-    else
-        return retMsg + "API Key and model name (plus API URL) configured, but verification results may be false positives due to third-party API base.\n";
+    else {
+        return retMsg + "API Key and model name (plus API URL) configured (Third-party API base).\n";
+    }
 }
 
 // Logout Interface to clear model name and API Key
