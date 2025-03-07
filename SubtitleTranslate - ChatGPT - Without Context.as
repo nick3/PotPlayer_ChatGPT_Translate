@@ -175,6 +175,7 @@ array<string> GetDstLangs() {
 
 // API Key and API Base verification process
 string ServerLogin(string User, string Pass) {
+    string errorAccum = "";
     User = User.Trim();
     Pass = Pass.Trim();
 
@@ -182,7 +183,6 @@ string ServerLogin(string User, string Pass) {
     string userModel = "";
     string customApiUrl = "";
     if (sepPos != -1) {
-        // Trim both sides of the separator to remove extra spaces
         userModel = User.substr(0, sepPos).Trim();
         customApiUrl = User.substr(sepPos + 1).Trim();
     } else {
@@ -190,156 +190,145 @@ string ServerLogin(string User, string Pass) {
         customApiUrl = "";
     }
     if (userModel.empty()) {
-        return "Model name not entered. Please enter a valid model name.\n";
+        errorAccum += "Model name not entered. Please enter a valid model name.\n";
+        return errorAccum;
     }
-    // Remove trailing slash(es) from API URL if present
+
+    // Set API URL (remove trailing slashes)
+    string apiUrl = "";
     if (!customApiUrl.empty()) {
-        while (customApiUrl.length() > 0 && customApiUrl.substr(customApiUrl.length()-1, 1) == "/") {
-            customApiUrl = customApiUrl.substr(0, customApiUrl.length()-1);
-        }
         apiUrl = customApiUrl;
+        while (!apiUrl.empty() && apiUrl.substr(apiUrl.length()-1, 1) == "/") {
+            apiUrl = apiUrl.substr(0, apiUrl.length()-1);
+        }
     } else {
         apiUrl = "https://api.openai.com/v1/chat/completions";
     }
     if (Pass.empty()) {
-        return "API Key not configured. Please enter a valid API Key.\n";
+        errorAccum += "API Key not configured. Please enter a valid API Key.\n";
+        return errorAccum;
     }
 
-    // Determine if using official API base
     bool isOfficial = (apiUrl.find("api.openai.com") != -1);
+    string verifyHeaders = "Authorization: Bearer " + Pass + "\nContent-Type: application/json";
 
-    // Construct verify URL
-    string verifyUrl = "";
+    // Prepare test message
+    string testSystemMsg = "You are a test assistant.";
+    string testUserMsg = "Hello";
+    string escapedTestSystemMsg = JsonEscape(testSystemMsg);
+    string escapedTestUserMsg = JsonEscape(testUserMsg);
+    string testRequestData = "{\"model\":\"" + userModel + "\","
+                             "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
+                             "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
+                             "\"max_tokens\":1,\"temperature\":0}";
+
+    string testResponse = HostUrlGetString(apiUrl, UserAgent, verifyHeaders, testRequestData);
+    if (!testResponse.empty()) {
+        JsonReader testReader;
+        JsonValue testRoot;
+        if (testReader.parse(testResponse, testRoot)) {
+            if (testRoot.isObject() && testRoot["choices"].isArray() && testRoot["choices"].size() > 0) {
+                // Test passed, save settings immediately and return success.
+                selected_model = userModel;
+                api_key = Pass;
+                HostSaveString("gpt_api_key", api_key);
+                HostSaveString("gpt_selected_model", selected_model);
+                HostSaveString("gpt_apiUrl", apiUrl);
+                return "200 ok";
+            } else {
+                if (testRoot.isObject() && testRoot["error"].isObject() && testRoot["error"]["message"].isString())
+                    errorAccum += "Test message error: " + testRoot["error"]["message"].asString() + "\n";
+                else
+                    errorAccum += "Test message response invalid.\n";
+            }
+        } else {
+            errorAccum += "Failed to parse test message response.\n";
+        }
+    } else {
+        errorAccum += "No response from server when sending test message.\n";
+    }
+
+    if (apiUrl.find("chat/completions") == -1) {
+        string correctedApiUrl = apiUrl + "/chat/completions";
+        string correctedTestResponse = HostUrlGetString(correctedApiUrl, UserAgent, verifyHeaders, testRequestData);
+        if (!correctedTestResponse.empty()) {
+            JsonReader correctedReader;
+            JsonValue correctedRoot;
+            if (correctedReader.parse(correctedTestResponse, correctedRoot)) {
+                if (correctedRoot.isObject() && correctedRoot["choices"].isArray() && correctedRoot["choices"].size() > 0) {
+                    apiUrl = correctedApiUrl;
+                    selected_model = userModel;
+                    api_key = Pass;
+                    HostSaveString("gpt_api_key", api_key);
+                    HostSaveString("gpt_selected_model", selected_model);
+                    HostSaveString("gpt_apiUrl", apiUrl);
+                    return "Warning: Your API base was auto-corrected to: " + apiUrl + "\n200 ok";
+                } else {
+                    if (correctedRoot.isObject() && correctedRoot["error"].isObject() && correctedRoot["error"]["message"].isString())
+                        errorAccum += "Auto-correction test error: " + correctedRoot["error"]["message"].asString() + "\n";
+                    else
+                        errorAccum += "Auto-correction test response invalid.\n";
+                }
+            } else {
+                errorAccum += "Failed to parse auto-correction test response.\n";
+            }
+        } else {
+            errorAccum += "No response from server after auto-correction.\n";
+        }
+    }
+
     if (isOfficial) {
+        string verifyUrl = "";
         int pos = apiUrl.find("chat/completions");
         if (pos != -1)
             verifyUrl = apiUrl.substr(0, pos) + "models";
         else
             verifyUrl = "https://api.openai.com/v1/models";
-    } else {
-        int lastSlash = apiUrl.findLast("/");
-        if (lastSlash != -1)
-            verifyUrl = apiUrl.substr(0, lastSlash) + "/models";
-        else
-            verifyUrl = apiUrl + "/models";
-    }
 
-    string verifyHeaders = "Authorization: Bearer " + Pass + "\nContent-Type: application/json";
-    string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
-    string retMsg = "";
-    if (verifyResponse.empty()) {
-        if (apiUrl.length() >= 3 && apiUrl.substr(apiUrl.length()-3, 3) == "/v1") {
-            apiUrl = apiUrl + "/chat/completions";
-            if (isOfficial) {
-                int pos = apiUrl.find("chat/completions");
-                if (pos != -1)
-                    verifyUrl = apiUrl.substr(0, pos) + "models";
-                else
-                    verifyUrl = apiUrl + "/models";
-            } else {
-                int lastSlash = apiUrl.findLast("/");
-                if (lastSlash != -1)
-                    verifyUrl = apiUrl.substr(0, lastSlash) + "/models";
-                else
-                    verifyUrl = apiUrl + "/models";
-            }
-            // retry
-            verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
-            if (!verifyResponse.empty()) {
-                retMsg += "Warning: Your API base was entered incorrectly; it has been automatically corrected to: " + apiUrl + "\n";
-                HostSaveString("gpt_apiUrl", apiUrl);
-            } else {
-                if (isOfficial)
-                    return "API Key verification failed: No response from server even after auto-correction. Please check network connection or API Key.\n";
-                else
-                    retMsg += "Warning: No response from server after auto-correction. (Third-party API base)\n";
-            }
+        string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
+        if (verifyResponse.empty()) {
+            errorAccum += "Server connection failed: Unable to retrieve model list. Check network and API Base.\n";
         } else {
-            if (isOfficial)
-                return "API Key verification failed: No response from server. Please check network connection or API Key.\n";
-            else
-                retMsg += "Warning: No response from server. (Third-party API base)\n";
-        }
-    }
-
-    JsonReader reader;
-    JsonValue root;
-    if (!reader.parse(verifyResponse, root)) {
-        if (isOfficial)
-            return "Failed to parse API verification response.\n";
-        else
-            retMsg += "Warning: Failed to parse API verification response (Third-party API base, possible false positive).\n";
-    }
-
-    // Try sending a message to the model
-    if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
-        string errorMsg = root["error"]["message"].asString();
-        string testSystemMsg = "You are a test assistant.";
-        string testUserMsg = "Hello";
-        string escapedTestSystemMsg = JsonEscape(testSystemMsg);
-        string escapedTestUserMsg = JsonEscape(testUserMsg);
-        string testRequestData = "{\"model\":\"" + selected_model + "\","
-                                 "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
-                                 "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
-                                 "\"max_tokens\":1,\"temperature\":0}";
-        string testResponse = HostUrlGetString(apiUrl, UserAgent, verifyHeaders, testRequestData);
-        if (!testResponse.empty()) {
-            JsonReader testReader;
-            JsonValue testRoot;
-            if (testReader.parse(testResponse, testRoot)) {
-                if (!(testRoot.isObject() && testRoot["choices"].isArray() && testRoot["choices"].size() > 0)) {
-                    return "API Key verification failed: " + errorMsg + "\n";
-                }
+            JsonReader reader;
+            JsonValue root;
+            if (!reader.parse(verifyResponse, root)) {
+                errorAccum += "Failed to parse model list response. Check API Base and API Key.\n";
             } else {
-                return "API Key verification failed: " + errorMsg + "\n";
-            }
-        } else {
-            return "API Key verification failed: " + errorMsg + "\n";
-        }
-    }
-
-    bool modelFound = false;
-    bool dataValid = (root.isObject() && !root["data"].isNull() && root["data"].isArray());
-    if (isOfficial) {
-        if (!dataValid)
-            return "Invalid response format during API Key verification (official API).\n";
-    } else {
-        if (!dataValid) {
-            retMsg += "Warning: Unable to verify model list using third-party API base (possible false positive).\n";
-            modelFound = true; // Skip model check
-        }
-    }
-    if (dataValid) {
-        // Iterate safely over the array using size() and checking each element
-        int dataSize = root["data"].size();
-        for (int i = 0; i < dataSize; i++) {
-            JsonValue element = root["data"][i];
-            if (!element.isNull() && element.isObject() && element["id"].isString()) {
-                if (element["id"].asString() == userModel) {
-                    modelFound = true;
-                    break;
+                if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
+                    errorAccum += "API error during model list retrieval: " + root["error"]["message"].asString() + "\n";
+                } else if (root.isObject() && root["data"].isArray()) {
+                    bool modelFound = false;
+                    int dataSize = root["data"].size();
+                    for (int i = 0; i < dataSize; i++) {
+                        JsonValue element = root["data"][i];
+                        if (element.isObject() && element["id"].isString()) {
+                            if (element["id"].asString() == userModel) {
+                                modelFound = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!modelFound) {
+                        errorAccum += "The specified model '" + userModel + "' is not available in the official API.\n";
+                    }
+                } else {
+                    errorAccum += "Invalid format of model list response.\n";
                 }
             }
         }
-        if (!modelFound) {
-            if (isOfficial)
-                return "The specified model '" + userModel + "' is not available in the API. Please check the model name.\n";
-            else
-                retMsg += "Warning: The specified model '" + userModel + "' is not available in the API (Third-party API base, possible false positive).\n";
-        }
+    } else {
+        errorAccum += "API verification via model list skipped for third-party API Base.\n";
     }
 
-    // Save settings
-    selected_model = userModel;
-    api_key = Pass;
-    HostSaveString("gpt_api_key", api_key);
-    HostSaveString("gpt_selected_model", selected_model);
-    HostSaveString("gpt_apiUrl", apiUrl);
-    if (isOfficial)
-        return "200 ok";
-    else {
-        return retMsg + "API Key and model name (plus API URL) configured (Third-party API base).\n";
+    if (Pass.length() < 20) {
+        errorAccum += "API Key verification failed: API Key length may too short. Please verify your API Key.\n";
     }
+
+    if (!errorAccum.empty()) {
+        return "API verification failed with the following issues:\n\n" + errorAccum;
+    }
+
+    return "Unknown error during API verification. Please check your network, API Key, and API Base settings.\n";
 }
 
 // Logout Interface to clear model name and API Key
@@ -385,8 +374,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     // Construct the prompt
-    string prompt = "You are a professional subtitle translator. Your task is to accurately translate the following subtitle while preserving its original tone, formatting, and meaning. Ensure proper grammar, natural fluency, and cultural appropriateness. Provide only the translated subtitle text without any additional comments, or explanations\n\n";
-
+    string prompt = "You are an expert subtitle translator with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\n";
     // Specify source and target languages
     prompt += "Translate from " + (SrcLang.empty() ? "Auto Detect" : SrcLang);
     prompt += " to " + DstLang + ".\n";
