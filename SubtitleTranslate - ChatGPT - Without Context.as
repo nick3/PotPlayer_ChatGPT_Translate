@@ -12,18 +12,18 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.4.6-wc";
+    return "1.5-wc";
 }
 
 string GetDesc() {
-    return "Real-time subtitle translation using OpenAI ChatGPT.";
+    return "Real-time subtitle translation using OpenAI ChatGPT. (No Context Support)";
 }
 
 string GetLoginTitle() {
-    return "{$CP949=OpenAI 모델 및 API 키 구성$}"
-         + "{$CP950=OpenAI 模型與 API 金鑰配置$}"
-         + "{$CP936=OpenAI 模型与 API 密钥配置$}"
-         + "{$CP0=OpenAI Model + API URL and API Key Configuration$}";
+    return "{$CP949=OpenAI 모델 및 API 키 구성 (문맥 없음) $}"
+         + "{$CP950=OpenAI 模型與 API 金鑰配置 (無上下文) $}"
+         + "{$CP936=OpenAI 模型与 API 密钥配置 (无上下文) $}"
+         + "{$CP0=OpenAI Model + API URL and API Key Configuration (No Context) $}";
 }
 
 string GetLoginDesc() {
@@ -178,41 +178,49 @@ string ServerLogin(string User, string Pass) {
     string errorAccum = "";
     User = User.Trim();
     Pass = Pass.Trim();
-
-    int sepPos = User.find("|");
+    array<string> tokens;
+    int start = 0;
+    for (int i = 0; i <= int(User.length()); i++) {
+        if (i == int(User.length()) || User.substr(i, 1) == "|") {
+            string token = User.substr(start, i - start).Trim();
+            tokens.insertLast(token);
+            start = i + 1;
+        }
+    }
     string userModel = "";
     string customApiUrl = "";
-    if (sepPos != -1) {
-        userModel = User.substr(0, sepPos).Trim();
-        customApiUrl = User.substr(sepPos + 1).Trim();
-    } else {
-        userModel = User;
-        customApiUrl = "";
+    bool allowNullApiKey = false;
+    if (tokens.length() >= 1) {
+        userModel = tokens[0];
     }
-    if (userModel.empty()) {
+    if (tokens.length() >= 2) {
+        if (tokens[1] == "nullkey")
+            allowNullApiKey = true;
+        else
+            customApiUrl = tokens[1];
+    }
+    if (tokens.length() >= 3) {
+        if (tokens[2] == "nullkey")
+            allowNullApiKey = true;
+    }
+    if (userModel == "") {
         errorAccum += "Model name not entered. Please enter a valid model name.\n";
         return errorAccum;
     }
-
-    // Set API URL (remove trailing slashes)
-    string apiUrl = "";
-    if (!customApiUrl.empty()) {
-        apiUrl = customApiUrl;
-        while (!apiUrl.empty() && apiUrl.substr(apiUrl.length()-1, 1) == "/") {
-            apiUrl = apiUrl.substr(0, apiUrl.length()-1);
-        }
+    string apiUrlLocal = "";
+    if (customApiUrl != "") {
+        apiUrlLocal = customApiUrl;
+        while (apiUrlLocal != "" && apiUrlLocal.substr(apiUrlLocal.length()-1, 1) == "/")
+            apiUrlLocal = apiUrlLocal.substr(0, apiUrlLocal.length()-1);
     } else {
-        apiUrl = "https://api.openai.com/v1/chat/completions";
+        apiUrlLocal = "https://api.openai.com/v1/chat/completions";
     }
-    if (Pass.empty()) {
+    if (!allowNullApiKey && Pass == "") {
         errorAccum += "API Key not configured. Please enter a valid API Key.\n";
         return errorAccum;
     }
-
-    bool isOfficial = (apiUrl.find("api.openai.com") != -1);
+    bool isOfficial = (apiUrlLocal.find("api.openai.com") != -1);
     string verifyHeaders = "Authorization: Bearer " + Pass + "\nContent-Type: application/json";
-
-    // Prepare test message
     string testSystemMsg = "You are a test assistant.";
     string testUserMsg = "Hello";
     string escapedTestSystemMsg = JsonEscape(testSystemMsg);
@@ -221,19 +229,17 @@ string ServerLogin(string User, string Pass) {
                              "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
                              "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
                              "\"max_tokens\":1,\"temperature\":0}";
-
-    string testResponse = HostUrlGetString(apiUrl, UserAgent, verifyHeaders, testRequestData);
-    if (!testResponse.empty()) {
+    string testResponse = HostUrlGetString(apiUrlLocal, UserAgent, verifyHeaders, testRequestData);
+    if (testResponse != "") {
         JsonReader testReader;
         JsonValue testRoot;
         if (testReader.parse(testResponse, testRoot)) {
             if (testRoot.isObject() && testRoot["choices"].isArray() && testRoot["choices"].size() > 0) {
-                // Test passed, save settings immediately and return success.
                 selected_model = userModel;
                 api_key = Pass;
-                HostSaveString("gpt_api_key", api_key);
-                HostSaveString("gpt_selected_model", selected_model);
-                HostSaveString("gpt_apiUrl", apiUrl);
+                HostSaveString("wc_api_key", api_key);
+                HostSaveString("wc_selected_model", selected_model);
+                HostSaveString("wc_apiUrl", apiUrlLocal);
                 return "200 ok";
             } else {
                 if (testRoot.isObject() && testRoot["error"].isObject() && testRoot["error"]["message"].isString())
@@ -247,22 +253,21 @@ string ServerLogin(string User, string Pass) {
     } else {
         errorAccum += "No response from server when sending test message.\n";
     }
-
-    if (apiUrl.find("chat/completions") == -1) {
-        string correctedApiUrl = apiUrl + "/chat/completions";
+    if (apiUrlLocal.find("chat/completions") == -1) {
+        string correctedApiUrl = apiUrlLocal + "/chat/completions";
         string correctedTestResponse = HostUrlGetString(correctedApiUrl, UserAgent, verifyHeaders, testRequestData);
-        if (!correctedTestResponse.empty()) {
+        if (correctedTestResponse != "") {
             JsonReader correctedReader;
             JsonValue correctedRoot;
             if (correctedReader.parse(correctedTestResponse, correctedRoot)) {
                 if (correctedRoot.isObject() && correctedRoot["choices"].isArray() && correctedRoot["choices"].size() > 0) {
-                    apiUrl = correctedApiUrl;
+                    apiUrlLocal = correctedApiUrl;
                     selected_model = userModel;
                     api_key = Pass;
-                    HostSaveString("gpt_api_key", api_key);
-                    HostSaveString("gpt_selected_model", selected_model);
-                    HostSaveString("gpt_apiUrl", apiUrl);
-                    return "Warning: Your API base was auto-corrected to: " + apiUrl + "\n200 ok";
+                    HostSaveString("wc_api_key", api_key);
+                    HostSaveString("wc_selected_model", selected_model);
+                    HostSaveString("wc_apiUrl", apiUrlLocal);
+                    return "Warning: Your API base was auto-corrected to: " + apiUrlLocal + "\n200 ok";
                 } else {
                     if (correctedRoot.isObject() && correctedRoot["error"].isObject() && correctedRoot["error"]["message"].isString())
                         errorAccum += "Auto-correction test error: " + correctedRoot["error"]["message"].asString() + "\n";
@@ -276,27 +281,25 @@ string ServerLogin(string User, string Pass) {
             errorAccum += "No response from server after auto-correction.\n";
         }
     }
-
     if (isOfficial) {
         string verifyUrl = "";
-        int pos = apiUrl.find("chat/completions");
+        int pos = apiUrlLocal.find("chat/completions");
         if (pos != -1)
-            verifyUrl = apiUrl.substr(0, pos) + "models";
+            verifyUrl = apiUrlLocal.substr(0, pos) + "models";
         else
             verifyUrl = "https://api.openai.com/v1/models";
-
         string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
-        if (verifyResponse.empty()) {
+        if (verifyResponse == "")
             errorAccum += "Server connection failed: Unable to retrieve model list. Check network and API Base.\n";
-        } else {
+        else {
             JsonReader reader;
             JsonValue root;
-            if (!reader.parse(verifyResponse, root)) {
+            if (!reader.parse(verifyResponse, root))
                 errorAccum += "Failed to parse model list response. Check API Base and API Key.\n";
-            } else {
-                if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
+            else {
+                if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString())
                     errorAccum += "API error during model list retrieval: " + root["error"]["message"].asString() + "\n";
-                } else if (root.isObject() && root["data"].isArray()) {
+                else if (root.isObject() && root["data"].isArray()) {
                     bool modelFound = false;
                     int dataSize = root["data"].size();
                     for (int i = 0; i < dataSize; i++) {
@@ -308,26 +311,19 @@ string ServerLogin(string User, string Pass) {
                             }
                         }
                     }
-                    if (!modelFound) {
+                    if (!modelFound)
                         errorAccum += "The specified model '" + userModel + "' is not available in the official API.\n";
-                    }
-                } else {
+                } else
                     errorAccum += "Invalid format of model list response.\n";
-                }
             }
         }
     } else {
         errorAccum += "API verification via model list skipped for third-party API Base.\n";
     }
-
-    if (Pass.length() < 20) {
+    if (!allowNullApiKey && Pass.length() < 20)
         errorAccum += "API Key verification failed: API Key length may too short. Please verify your API Key.\n";
-    }
-
-    if (!errorAccum.empty()) {
+    if (errorAccum != "")
         return "API verification failed with the following issues:\n\n" + errorAccum;
-    }
-
     return "Unknown error during API verification. Please check your network, API Key, and API Base settings.\n";
 }
 
@@ -336,9 +332,9 @@ void ServerLogout() {
     api_key = "";
     selected_model = "gpt-4o-mini";
     apiUrl = "https://api.openai.com/v1/chat/completions";
-    HostSaveString("wc_gpt_api_key", "");
-    HostSaveString("wc_gpt_selected_model", selected_model);
-    HostSaveString("wc_gpt_apiUrl", apiUrl);
+    HostSaveString("wc_api_key", "");
+    HostSaveString("wc_selected_model", selected_model);
+    HostSaveString("wc_apiUrl", apiUrl);
     HostPrintUTF8("Successfully logged out.\n");
 }
 
@@ -350,56 +346,68 @@ string JsonEscape(const string &in input) {
     output.replace("\n", "\\n");
     output.replace("\r", "\\r");
     output.replace("\t", "\\t");
-    output.replace("/", "\\/");  // Escape forward slash for model names with '/'
+    output.replace("/", "\\/");
     return output;
 }
 
-string Translate(string Text, string &in SrcLang, string &in DstLang) {
-    api_key = HostLoadString("wc_gpt_api_key", "");
-    selected_model = HostLoadString("wc_gpt_selected_model", "gpt-4o-mini");
-    apiUrl = HostLoadString("wc_gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
+// Function to estimate token count based on character length
+int EstimateTokenCount(const string &in text) {
+    return int(float(text.length()) / 4);
+}
 
-    if (api_key.empty()) {
+// Function to get the model's maximum context length
+int GetModelMaxTokens(const string &in modelName) {
+    if (modelName == "gpt-3.5-turbo")
+        return 4096;
+    else if (modelName == "gpt-3.5-turbo-16k")
+        return 16384;
+    else if (modelName == "gpt-4o")
+        return 128000;
+    else if (modelName == "gpt-4o-mini")
+        return 128000;
+    else
+        return 4096;
+}
+
+// Translation Function (Without Context Support)
+string Translate(string Text, string &in SrcLang, string &in DstLang) {
+    api_key = HostLoadString("wc_api_key", "");
+    selected_model = HostLoadString("wc_selected_model", "gpt-4o-mini");
+    apiUrl = HostLoadString("wc_apiUrl", "https://api.openai.com/v1/chat/completions");
+
+    if (api_key == "") {
         HostPrintUTF8("API Key not configured. Please enter it in the settings menu.\n");
         return "";
     }
 
-    if (DstLang.empty() || DstLang == "Auto Detect") {
+    if (DstLang == "" || DstLang == "Auto Detect") {
         HostPrintUTF8("Target language not specified. Please select a target language.\n");
         return "";
     }
 
-    if (SrcLang.empty() || SrcLang == "Auto Detect") {
+    if (SrcLang == "" || SrcLang == "Auto Detect") {
         SrcLang = "";
     }
 
-    // Construct the prompt
-    string prompt = "You are an expert subtitle translator with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\n";
-    // Specify source and target languages
-    prompt += "Translate from " + (SrcLang.empty() ? "Auto Detect" : SrcLang);
-    prompt += " to " + DstLang + ".\n";
+    string systemMsg = "You are a professional subtitle translate tool. Do not output any extra context.";
+    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Translate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\nSubtitle:\n" + Text;
 
-    // Add subtitle text
-    prompt += "Subtitle:\n" + Text + "\n";
+    string escapedSystemMsg = JsonEscape(systemMsg);
+    string escapedUserMsg = JsonEscape(userMsg);
 
-    // JSON escape the prompt
-    string escapedPrompt = JsonEscape(prompt);
-
-    // Prepare the request data
-    string requestData = "{\"model\":\"" + selected_model + "\"," +
-                         "\"messages\":[{\"role\":\"user\",\"content\":\"" + escapedPrompt + "\"}]," +
+    string requestData = "{\"model\":\"" + selected_model + "\","
+                         "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"},"
+                         "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}],"
                          "\"max_tokens\":1000,\"temperature\":0}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
 
-    // Send request
     string response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
-    if (response.empty()) {
+    if (response == "") {
         HostPrintUTF8("Translation request failed. Please check network connection or API Key.\n");
         return "";
     }
 
-    // Parse response
     JsonReader Reader;
     JsonValue Root;
     if (!Reader.parse(response, Root)) {
@@ -407,30 +415,29 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         return "";
     }
 
-    // Check for choices field safely
-    if (Root.isObject() && Root["choices"].isArray() && Root["choices"].size() > 0) {
-        JsonValue firstChoice = Root["choices"][0];
-        if (firstChoice.isObject() && firstChoice["message"].isObject() &&
-            firstChoice["message"]["content"].isString()) {
-            string translatedText = firstChoice["message"]["content"].asString();
-            if (selected_model.find("gemini") != -1) {
-                while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
-                    translatedText = translatedText.substr(0, translatedText.length() - 1);
-                }
+    JsonValue choices = Root["choices"];
+    if (choices.isArray() && choices.size() > 0 &&
+        choices[0].isObject() &&
+        choices[0]["message"].isObject() &&
+        choices[0]["message"]["content"].isString()) {
+        string translatedText = choices[0]["message"]["content"].asString();
+        if (selected_model.find("gemini") != -1) {
+            while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
+                translatedText = translatedText.substr(0, translatedText.length() - 1);
             }
-            // Handle right-to-left languages.
-            if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
-                string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
-                translatedText = UNICODE_RLE + translatedText;
-            }
-            SrcLang = "UTF8";
-            DstLang = "UTF8";
-            return translatedText.Trim();
         }
+        if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
+            string UNICODE_RLE = "\u202B";
+            translatedText = UNICODE_RLE + translatedText;
+        }
+        SrcLang = "UTF8";
+        DstLang = "UTF8";
+        return translatedText.Trim();
     }
 
-    // Check if error exists
-    if (Root.isObject() && Root["error"].isObject() && Root["error"]["message"].isString()) {
+    if (Root.isObject() &&
+        Root["error"].isObject() &&
+        Root["error"]["message"].isString()) {
         string errorMessage = Root["error"]["message"].asString();
         HostPrintUTF8("API Error: " + errorMessage + "\n");
         return "API Error: " + errorMessage;
@@ -438,18 +445,15 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         HostPrintUTF8("Translation failed. Please check input parameters or API Key configuration.\n");
         return "Translation failed. Please check input parameters or API Key configuration.";
     }
-
-    return "";
 }
 
 // Plugin Initialization
 void OnInitialize() {
     HostPrintUTF8("ChatGPT translation plugin loaded.\n");
-    // Load model name, API Key, and apiUrl from temporary storage (if saved)
-    api_key = HostLoadString("wc_gpt_api_key", "");
-    selected_model = HostLoadString("wc_gpt_selected_model", "gpt-4o-mini");
-    apiUrl = HostLoadString("wc_gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
-    if (!api_key.empty()) {
+    api_key = HostLoadString("wc_api_key", "");
+    selected_model = HostLoadString("wc_selected_model", "gpt-4o-mini");
+    apiUrl = HostLoadString("wc_apiUrl", "https://api.openai.com/v1/chat/completions");
+    if (api_key != "") {
         HostPrintUTF8("Saved API Key, model name, and API URL loaded.\n");
     }
 }

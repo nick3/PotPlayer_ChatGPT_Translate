@@ -3,10 +3,9 @@ import sys
 import ctypes
 import threading
 import shutil
-import locale
 import win32com.client
 import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox
+from tkinter import filedialog, messagebox
 import webbrowser
 
 # --------------------------
@@ -28,7 +27,7 @@ LANGUAGE_STRINGS = {
         "found_directory": "Directory found: {}",
         "no_directory_found": "No directory found.",
         "enter_directory": "Please enter the full path to the PotPlayer Translate directory:",
-        "welcome_message": "Welcome to the PotPlayer ChatGPT Translate Installer\n\n(v1.4.5)",
+        "welcome_message": "Welcome to the PotPlayer ChatGPT Translate Installer\n\n(v1.5)",
         "new_installer_notice": "The new installer has been completed. Press Next to continue.",
         "select_install_dir": "Select the PotPlayer Translate directory:",
         "browse": "Browse",
@@ -67,7 +66,7 @@ LANGUAGE_STRINGS = {
         "found_directory": "找到目录: {}",
         "no_directory_found": "未找到目录。",
         "enter_directory": "请输入PotPlayer的Translate目录完整路径：",
-        "welcome_message": "欢迎使用PotPlayer ChatGPT 翻译安装程序\n\n(v1.4.5)",
+        "welcome_message": "欢迎使用PotPlayer ChatGPT 翻译安装程序\n\n(v1.5)",
         "new_installer_notice": "新的安装器已完成编写，按下一步继续",
         "select_install_dir": "请选择PotPlayer的Translate目录：",
         "browse": "浏览",

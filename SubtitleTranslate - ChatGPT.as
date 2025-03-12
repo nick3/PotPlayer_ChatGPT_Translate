@@ -11,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.4.6";
+    return "1.5";
 }
 
 string GetDesc() {
@@ -29,7 +29,7 @@ string GetLoginDesc() {
     return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}"
          + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
          + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).}$";
+         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}";
 }
 
 string GetUserText() {
@@ -51,6 +51,7 @@ string api_key = "";
 string selected_model = "gpt-4o-mini"; // Default model
 string apiUrl = "https://api.openai.com/v1/chat/completions"; // Default API URL
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+array<string> subtitleHistory;  // Global subtitle history
 
 // Supported Language List
 array<string> LangTable =
@@ -177,41 +178,49 @@ string ServerLogin(string User, string Pass) {
     string errorAccum = "";
     User = User.Trim();
     Pass = Pass.Trim();
-
-    int sepPos = User.find("|");
+    array<string> tokens;
+    int start = 0;
+    for (int i = 0; i <= int(User.length()); i++) {
+        if (i == int(User.length()) || User.substr(i, 1) == "|") {
+            string token = User.substr(start, i - start).Trim();
+            tokens.insertLast(token);
+            start = i + 1;
+        }
+    }
     string userModel = "";
     string customApiUrl = "";
-    if (sepPos != -1) {
-        userModel = User.substr(0, sepPos).Trim();
-        customApiUrl = User.substr(sepPos + 1).Trim();
-    } else {
-        userModel = User;
-        customApiUrl = "";
+    bool allowNullApiKey = false;
+    if (tokens.length() >= 1) {
+        userModel = tokens[0];
     }
-    if (userModel.empty()) {
+    if (tokens.length() >= 2) {
+        if (tokens[1] == "nullkey")
+            allowNullApiKey = true;
+        else
+            customApiUrl = tokens[1];
+    }
+    if (tokens.length() >= 3) {
+        if (tokens[2] == "nullkey")
+            allowNullApiKey = true;
+    }
+    if (userModel == "") {
         errorAccum += "Model name not entered. Please enter a valid model name.\n";
         return errorAccum;
     }
-
-    // Set API URL (remove trailing slashes)
-    string apiUrl = "";
-    if (!customApiUrl.empty()) {
-        apiUrl = customApiUrl;
-        while (!apiUrl.empty() && apiUrl.substr(apiUrl.length()-1, 1) == "/") {
-            apiUrl = apiUrl.substr(0, apiUrl.length()-1);
-        }
+    string apiUrlLocal = "";
+    if (customApiUrl != "") {
+        apiUrlLocal = customApiUrl;
+        while (apiUrlLocal != "" && apiUrlLocal.substr(apiUrlLocal.length()-1, 1) == "/")
+            apiUrlLocal = apiUrlLocal.substr(0, apiUrlLocal.length()-1);
     } else {
-        apiUrl = "https://api.openai.com/v1/chat/completions";
+        apiUrlLocal = "https://api.openai.com/v1/chat/completions";
     }
-    if (Pass.empty()) {
+    if (!allowNullApiKey && Pass == "") {
         errorAccum += "API Key not configured. Please enter a valid API Key.\n";
         return errorAccum;
     }
-
-    bool isOfficial = (apiUrl.find("api.openai.com") != -1);
+    bool isOfficial = (apiUrlLocal.find("api.openai.com") != -1);
     string verifyHeaders = "Authorization: Bearer " + Pass + "\nContent-Type: application/json";
-
-    // Prepare test message
     string testSystemMsg = "You are a test assistant.";
     string testUserMsg = "Hello";
     string escapedTestSystemMsg = JsonEscape(testSystemMsg);
@@ -220,19 +229,17 @@ string ServerLogin(string User, string Pass) {
                              "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
                              "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
                              "\"max_tokens\":1,\"temperature\":0}";
-
-    string testResponse = HostUrlGetString(apiUrl, UserAgent, verifyHeaders, testRequestData);
-    if (!testResponse.empty()) {
+    string testResponse = HostUrlGetString(apiUrlLocal, UserAgent, verifyHeaders, testRequestData);
+    if (testResponse != "") {
         JsonReader testReader;
         JsonValue testRoot;
         if (testReader.parse(testResponse, testRoot)) {
             if (testRoot.isObject() && testRoot["choices"].isArray() && testRoot["choices"].size() > 0) {
-                // Test passed, save settings immediately and return success.
                 selected_model = userModel;
                 api_key = Pass;
                 HostSaveString("gpt_api_key", api_key);
                 HostSaveString("gpt_selected_model", selected_model);
-                HostSaveString("gpt_apiUrl", apiUrl);
+                HostSaveString("gpt_apiUrl", apiUrlLocal);
                 return "200 ok";
             } else {
                 if (testRoot.isObject() && testRoot["error"].isObject() && testRoot["error"]["message"].isString())
@@ -246,22 +253,21 @@ string ServerLogin(string User, string Pass) {
     } else {
         errorAccum += "No response from server when sending test message.\n";
     }
-
-    if (apiUrl.find("chat/completions") == -1) {
-        string correctedApiUrl = apiUrl + "/chat/completions";
+    if (apiUrlLocal.find("chat/completions") == -1) {
+        string correctedApiUrl = apiUrlLocal + "/chat/completions";
         string correctedTestResponse = HostUrlGetString(correctedApiUrl, UserAgent, verifyHeaders, testRequestData);
-        if (!correctedTestResponse.empty()) {
+        if (correctedTestResponse != "") {
             JsonReader correctedReader;
             JsonValue correctedRoot;
             if (correctedReader.parse(correctedTestResponse, correctedRoot)) {
                 if (correctedRoot.isObject() && correctedRoot["choices"].isArray() && correctedRoot["choices"].size() > 0) {
-                    apiUrl = correctedApiUrl;
+                    apiUrlLocal = correctedApiUrl;
                     selected_model = userModel;
                     api_key = Pass;
                     HostSaveString("gpt_api_key", api_key);
                     HostSaveString("gpt_selected_model", selected_model);
-                    HostSaveString("gpt_apiUrl", apiUrl);
-                    return "Warning: Your API base was auto-corrected to: " + apiUrl + "\n200 ok";
+                    HostSaveString("gpt_apiUrl", apiUrlLocal);
+                    return "Warning: Your API base was auto-corrected to: " + apiUrlLocal + "\n200 ok";
                 } else {
                     if (correctedRoot.isObject() && correctedRoot["error"].isObject() && correctedRoot["error"]["message"].isString())
                         errorAccum += "Auto-correction test error: " + correctedRoot["error"]["message"].asString() + "\n";
@@ -275,27 +281,25 @@ string ServerLogin(string User, string Pass) {
             errorAccum += "No response from server after auto-correction.\n";
         }
     }
-
     if (isOfficial) {
         string verifyUrl = "";
-        int pos = apiUrl.find("chat/completions");
+        int pos = apiUrlLocal.find("chat/completions");
         if (pos != -1)
-            verifyUrl = apiUrl.substr(0, pos) + "models";
+            verifyUrl = apiUrlLocal.substr(0, pos) + "models";
         else
             verifyUrl = "https://api.openai.com/v1/models";
-
         string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
-        if (verifyResponse.empty()) {
+        if (verifyResponse == "")
             errorAccum += "Server connection failed: Unable to retrieve model list. Check network and API Base.\n";
-        } else {
+        else {
             JsonReader reader;
             JsonValue root;
-            if (!reader.parse(verifyResponse, root)) {
+            if (!reader.parse(verifyResponse, root))
                 errorAccum += "Failed to parse model list response. Check API Base and API Key.\n";
-            } else {
-                if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString()) {
+            else {
+                if (root.isObject() && root["error"].isObject() && root["error"]["message"].isString())
                     errorAccum += "API error during model list retrieval: " + root["error"]["message"].asString() + "\n";
-                } else if (root.isObject() && root["data"].isArray()) {
+                else if (root.isObject() && root["data"].isArray()) {
                     bool modelFound = false;
                     int dataSize = root["data"].size();
                     for (int i = 0; i < dataSize; i++) {
@@ -307,26 +311,19 @@ string ServerLogin(string User, string Pass) {
                             }
                         }
                     }
-                    if (!modelFound) {
+                    if (!modelFound)
                         errorAccum += "The specified model '" + userModel + "' is not available in the official API.\n";
-                    }
-                } else {
+                } else
                     errorAccum += "Invalid format of model list response.\n";
-                }
             }
         }
     } else {
         errorAccum += "API verification via model list skipped for third-party API Base.\n";
     }
-
-    if (Pass.length() < 20) {
+    if (!allowNullApiKey && Pass.length() < 20)
         errorAccum += "API Key verification failed: API Key length may too short. Please verify your API Key.\n";
-    }
-
-    if (!errorAccum.empty()) {
+    if (errorAccum != "")
         return "API verification failed with the following issues:\n\n" + errorAccum;
-    }
-
     return "Unknown error during API verification. Please check your network, API Key, and API Base settings.\n";
 }
 
@@ -349,13 +346,9 @@ string JsonEscape(const string &in input) {
     output.replace("\n", "\\n");
     output.replace("\r", "\\r");
     output.replace("\t", "\\t");
-    output.replace("/", "\\/");  // Escape forward slash for model names with '/'
+    output.replace("/", "\\/");
     return output;
 }
-
-// Global variables for storing previous subtitles
-array<string> subtitleHistory;
-string UNICODE_RLE = "\u202B"; // For Right-to-Left languages
 
 // Function to estimate token count based on character length
 int EstimateTokenCount(const string &in text) {
@@ -382,27 +375,23 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     selected_model = HostLoadString("gpt_selected_model", "gpt-4o-mini");
     apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
 
-    if (api_key.empty()) {
+    if (api_key == "") {
         HostPrintUTF8("API Key not configured. Please enter it in the settings menu.\n");
         return "";
     }
 
-    if (DstLang.empty() || DstLang == "Auto Detect") {
+    if (DstLang == "" || DstLang == "Auto Detect") {
         HostPrintUTF8("Target language not specified. Please select a target language.\n");
         return "";
     }
 
-    if (SrcLang.empty() || SrcLang == "Auto Detect") {
+    if (SrcLang == "" || SrcLang == "Auto Detect") {
         SrcLang = "";
     }
 
-    // Add the current subtitle to the history
     subtitleHistory.insertLast(Text);
 
-    // Get the model's maximum token limit
     int maxTokens = GetModelMaxTokens(selected_model);
-
-    // Build the context from the subtitle history
     string context = "";
     int tokenCount = EstimateTokenCount(Text);
     int i = int(subtitleHistory.length()) - 2;
@@ -416,26 +405,20 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         i--;
     }
 
-    // Limit the size of subtitleHistory to prevent it from growing indefinitely
     if (subtitleHistory.length() > 1000) {
         subtitleHistory.removeAt(0);
     }
 
-    // System prompt
-    string systemMsg = "You are a professional subtitle translator. I may provide you with context for better translations, but DO NOT output any context.";
+    string systemMsg = "You are a professional subtitle translate tool. I may provide you with context for better translations, but DO NOT output any context.";
+    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\nTranslate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\nSubtitle:\n" + Text;
 
-    // User prompt
-    string userMsg = "You are an expert subtitle translator with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\nTranslate the following subtitle from " + (SrcLang.empty() ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\nSubtitle:\n" + Text;
-
-    if (!context.empty()) {
+    if (context != "") {
         userMsg += "\n[Subtitle context (DO NOT OUTPUT):\n" + context + "]";
     }
 
-    // JSON escape
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
 
-    // Request data
     string requestData = "{\"model\":\"" + selected_model + "\","
                          "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"},"
                          "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}],"
@@ -443,14 +426,12 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
 
-    // Send request
     string response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
-    if (response.empty()) {
+    if (response == "") {
         HostPrintUTF8("Translation request failed. Please check network connection or API Key.\n");
         return "";
     }
 
-    // Parse response
     JsonReader Reader;
     JsonValue Root;
     if (!Reader.parse(response, Root)) {
@@ -458,7 +439,6 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         return "";
     }
 
-    // Check if choices exists and is a valid array with required objects
     JsonValue choices = Root["choices"];
     if (choices.isArray() && choices.size() > 0 &&
         choices[0].isObject() &&
@@ -470,8 +450,8 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
                 translatedText = translatedText.substr(0, translatedText.length() - 1);
             }
         }
-        // Handle RTL languages.
         if (DstLang == "fa" || DstLang == "ar" || DstLang == "he") {
+            string UNICODE_RLE = "\u202B";
             translatedText = UNICODE_RLE + translatedText;
         }
         SrcLang = "UTF8";
@@ -479,7 +459,6 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         return translatedText.Trim();
     }
 
-    // Check if error exists and has message
     if (Root.isObject() &&
         Root["error"].isObject() &&
         Root["error"]["message"].isString()) {
@@ -495,11 +474,10 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 // Plugin Initialization
 void OnInitialize() {
     HostPrintUTF8("ChatGPT translation plugin loaded.\n");
-    // Load model name, API Key, and apiUrl from temporary storage (if saved)
     api_key = HostLoadString("gpt_api_key", "");
     selected_model = HostLoadString("gpt_selected_model", "gpt-4o-mini");
     apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
-    if (!api_key.empty()) {
+    if (api_key != "") {
         HostPrintUTF8("Saved API Key, model name, and API URL loaded.\n");
     }
 }
