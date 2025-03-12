@@ -147,20 +147,48 @@ Click below to watch the tutorial on Bilibili:
 
 ## Configuration ⚙️
 
-1. Open PotPlayer's **Preferences** (press **F5**).
-2. Navigate to **Extensions > Subtitle translation**.
-3. Select **ChatGPT Translate** as the translation plugin.
-4. Configure the plugin:
-    - **Model Name:**  
-      You can simply enter the model name, which will use the default API URL.  
-      **Example:** `gpt-4o-mini`  
-      
-      Alternatively, specify a custom API URL in the format:  
-      `Model Name|API Interface URL`  
-      **Example:** `gpt-4o-mini|https://api.openai.com/v1/chat/completions`
-    - **API Key:** Enter your API key.
-      > You can test your API Key using **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** to ensure it is valid.  
-5. Set the source and target languages as required.
+1. **Open PotPlayer's Preferences:**  
+   Press **F5** to open the PotPlayer **Preferences**.
+
+2. **Navigate to Extensions:**  
+   Go to **Extensions > Subtitle translation**.
+
+3. **Select the Translation Plugin:**  
+   Choose **ChatGPT Translate** as the translation plugin.
+
+4. **Configure the Plugin:**  
+   - **Model Name:**  
+     You can simply enter the model name, which will use the default API URL.  
+     **Example:**  
+     ```
+     gpt-4o-mini
+     ```  
+     
+     Alternatively, specify a custom API URL using the following format:  
+     ```
+     Model Name|API Interface URL
+     ```  
+     **Example:**  
+     ```
+     gpt-4o-mini|https://api.openai.com/v1/chat/completions
+     ```  
+     
+     > **Note:**  
+     > In the updated version (v1.5), if you are using a third-party API interface and do not require an API Key, you can supply `nullkey` as the second parameter. For example:  
+     > ```
+     > gpt-4o-mini|nullkey
+     > ```
+     > or:  
+     > ```
+     > qwen2.5:7b|https://127.0.0.1:11434/v1/chat/completions|nullkey
+     > ```
+     
+   - **API Key:**  
+     Enter your API key.  
+     > You can test your API key using **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** to ensure it is valid.
+
+5. **Set the Source and Target Languages:**  
+   Configure the source and target languages as required.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

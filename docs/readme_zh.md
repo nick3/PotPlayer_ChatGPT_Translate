@@ -149,20 +149,48 @@
 
 ## 配置 ⚙️
 
-1. 打开 PotPlayer 的 **首选项**（按 **F5**）。
-2. 导航至 **扩展 > 字幕翻译**。
-3. 选择 **ChatGPT Translate** 作为翻译插件。
-4. 配置插件：
-    - **模型名称：**  
-      你可以直接输入模型名称，此时将使用默认 API URL。  
-      **例如：** `gpt-4o-mini`
-      
-      或者，可以按照以下格式指定自定义 API URL：  
-      `模型名称|API 接口 URL`  
-      **例如：** `gpt-4o-mini|https://api.openai.com/v1/chat/completions`
-    - **API 密钥：** 输入你的 API 密钥。
-      > 你可以在此页面 **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** 测试你的API Key是否有效.  
-5. 根据需要设置源语言和目标语言。
+1. **打开 PotPlayer 的设置：**  
+   按下 **F5** 打开 PotPlayer 的 **首选项**。
+
+2. **导航至扩展设置：**  
+   依次选择 **扩展 > 字幕翻译**。
+
+3. **选择翻译插件：**  
+   选择 **ChatGPT 翻译** 作为翻译插件。
+
+4. **配置插件：**  
+   - **Model Name（模型名称）：**  
+     你可以仅输入模型名称，这时会使用默认的 API 接口 URL。  
+     **示例：**  
+     ```
+     gpt-4o-mini
+     ```  
+     
+     或者，你也可以通过指定自定义 API 接口 URL，格式为：  
+     ```
+     模型名称|API 提供商
+     ```  
+     **示例：**  
+     ```
+     gpt-4o-mini|https://api.openai.com/v1/chat/completions
+     ```  
+     
+     > **备注：**  
+     > 在新版插件中（版本 1.5），如果需要支持第三方 API 接口且不使用 API Key，可以在第二个参数中填写 `nullkey`。例如：  
+     > ```
+     > gpt-4o-mini|nullkey
+     > ```
+     > 或者：
+     > ```
+     > qwen2.5:7b|https://127.0.0.1:11434/v1/chat/completions|nullkey
+     > ```
+     
+   - **API Key：**  
+     输入你的 API Key。  
+     > 你可以使用 **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** 测试 API Key 是否有效。
+
+5. **设置源语言和目标语言：**  
+   根据需要配置字幕的源语言和目标语言。
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
 
