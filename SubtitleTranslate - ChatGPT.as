@@ -410,7 +410,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     string systemMsg = "You are a professional subtitle translate tool. I may provide you with context for better translations, but DO NOT output any context.";
-    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\nTranslate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\nSubtitle:\n" + Text;
+    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\nTranslate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\nSubtitle to translate:\n" + Text;
 
     if (context != "") {
         userMsg += "\n[Subtitle context (DO NOT OUTPUT):\n" + context + "]";
