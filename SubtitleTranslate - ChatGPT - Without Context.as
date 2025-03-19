@@ -390,7 +390,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     string systemMsg = "You are a professional subtitle translate tool. Do not output any explanatory text or extra context.";
-    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Do not output any explanatory text or extra context. Translate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\nSubtitle to translate:\n" + Text;
+    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Do not output any explanatory text or extra context. Translate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\n" + Text;
 
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
