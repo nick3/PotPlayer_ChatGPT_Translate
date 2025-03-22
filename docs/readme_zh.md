@@ -122,7 +122,7 @@
 ### 全自动安装（推荐） ⚡
 
 1. **下载安装程序：**  
-   [安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.4.4/installer.v1.4.4.exe)  
+   [安装程序]([installer-url])  
    *(安装程序是开源的，你可以查看其源码)*
 2. **运行安装程序：**  
    - 双击 installer.exe 启动安装。  
@@ -263,3 +263,4 @@
 [issues-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues
 [license-shield]: https://img.shields.io/github/license/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
 [license-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/LICENSE
+[installer-url]: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.5.1/installer.v1.5.1.exe
