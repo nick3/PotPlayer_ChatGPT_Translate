@@ -122,7 +122,7 @@ Click below to watch the tutorial on Bilibili:
 ### Fully Automatic Installation (Recommended) ⚡
 
 1. **Download the Installer:**  
-   [Installer]([installer-url])  
+   [Installer](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/latest)  
    *(The installer is open source, so you can review the source code)*
 2. **Run the Installer:**  
    - Double-click `installer.exe` to start the installation.  
@@ -261,4 +261,3 @@ Personal website: [obanarchy.org](https://obanarchy.org)
 [issues-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/issues
 [license-shield]: https://img.shields.io/github/license/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
 [license-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/LICENSE
-[installer-url]: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/download/v1.5.1/installer.v1.5.1.exe
