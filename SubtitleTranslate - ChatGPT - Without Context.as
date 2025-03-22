@@ -12,7 +12,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.5-wc";
+    return "1.5.1-wc";
 }
 
 string GetDesc() {
