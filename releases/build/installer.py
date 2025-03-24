@@ -37,7 +37,7 @@ LANGUAGE_STRINGS = {
         "cancel": "Cancel",
         "finish": "Finish",
         "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
-        "file_exists": "File {} already exists.\nYes: Overwrite (覆盖升级)\nNo: Enter a custom name\nCancel: Abort installation",
+        "file_exists": "File {} already exists.\nYes: Overwrite (Update)\nNo: Enter a custom name\nCancel: Abort installation",
         "installation_cancelled": "Installation cancelled by user.",
         "custom_name_prompt": "Please enter the new file name:",
         "custom_name_empty": "Custom name cannot be empty. Installation cancelled."
@@ -389,9 +389,9 @@ class InstallThread(threading.Thread):
         for src_file, dest_name in OFFLINE_FILES.get(self.version, []):
             src_path = os.path.join(self.script_dir, src_file)
             dest_path = os.path.join(self.install_dir, dest_name)
-            self.callback(f"Copying {src_file} ...\n正在复制 {src_file} ...")
+            self.callback(f"Copying {src_file} ...")
             if not os.path.exists(src_path):
-                self.callback(f"Error: Missing file {src_file}.\n错误：缺少 {src_file}")
+                self.callback(f"Error: Missing file {src_file}.")
                 return
             if os.path.exists(dest_path):
                 res = messagebox.askyesnocancel("File Exists", s["file_exists"].format(dest_name))
@@ -401,7 +401,7 @@ class InstallThread(threading.Thread):
                 elif res is True:
                     try:
                         shutil.copy(src_path, dest_path)
-                        self.callback(f"Installed {dest_name} (覆盖升级).\n已覆盖安装 {dest_name}")
+                        self.callback(f"Installed {dest_name} (Overwrite updated).")
                     except Exception as e:
                         self.callback(merge_bilingual("installation_failed").format(e))
                         return
@@ -424,14 +424,14 @@ class InstallThread(threading.Thread):
                         break
                     try:
                         shutil.copy(src_path, new_dest_path)
-                        self.callback(f"Installed {new_name}.\n已安装 {new_name}")
+                        self.callback(f"Installed {new_name}.")
                     except Exception as e:
                         self.callback(merge_bilingual("installation_failed").format(e))
                         return
             else:
                 try:
                     shutil.copy(src_path, dest_path)
-                    self.callback(f"Installed {dest_name}.\n已安装 {dest_name}")
+                    self.callback(f"Installed {dest_name}.")
                 except Exception as e:
                     self.callback(merge_bilingual("installation_failed").format(e))
                     return
