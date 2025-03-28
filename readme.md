@@ -219,6 +219,8 @@ DeepSeek-R1: deepseek-r1|https://api.deepseek.com/r1/chat/completions
 Local Deployment (no API key): model-name|127.0.0.1:PORT|nullkey
 ```
 
+You can expand or replace these with any OpenAI-compatible model that supports the chat/completions endpoint.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
