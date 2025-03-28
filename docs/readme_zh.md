@@ -184,13 +184,41 @@
      > ```
      > qwen2.5:7b|https://127.0.0.1:11434/v1/chat/completions|nullkey
      > ```
-     
+
    - **API Key：**  
      输入你的 API Key。  
      > 你可以使用 **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** 测试 API Key 是否有效。
 
 5. **设置源语言和目标语言：**  
    根据需要配置字幕的源语言和目标语言。
+
+---
+
+### 模型填写示例列表
+
+使用格式如下：  
+```
+模型名称|API 地址|nullkey（可选）
+```
+
+以下是已支持或可用的模型接口示例：
+
+```
+Deepseek: deepseek-chat|https://api.deepseek.com/v1/chat/completions
+通义千问: qwen-plus|https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
+硅基流动: siliconflow-chat|https://api.siliconflow.cn/v1/chat/completions
+文心一言: ernie-4.0-turbo-8k|https://qianfan.baidubce.com/v2/chat/completions
+Gemini: gemini-2.0-flash|https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+ChatGLM: chatglm-6b|https://api.chatglm.cn/v1/chat/completions
+LLaMA: llama-13b|https://api.llama.ai/v1/chat/completions
+Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
+DeepSeek-V3: deepseek-v3|https://api.deepseek.com/v3/chat/completions
+DeepSeek-R1: deepseek-r1|https://api.deepseek.com/r1/chat/completions
+本地部署（无需 API Key）：模型名称|127.0.0.1:端口|nullkey
+```
+
+你也可以根据需要扩展其他兼容 OpenAI 接口的模型，确保它们支持 `chat/completions` 接口。
+
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
 
