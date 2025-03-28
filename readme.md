@@ -145,6 +145,10 @@ Click below to watch the tutorial on Bilibili:
 
 ---
 
+Sure! Here's the updated **README** section, with your extended model API list included in English and following the current structure:
+
+---
+
 ## Configuration ⚙️
 
 1. **Open PotPlayer's Preferences:**  
@@ -166,7 +170,7 @@ Click below to watch the tutorial on Bilibili:
      
      Alternatively, specify a custom API URL using the following format:  
      ```
-     Model Name|API Interface URL
+     ModelName|API Base URL
      ```  
      **Example:**  
      ```
@@ -174,7 +178,7 @@ Click below to watch the tutorial on Bilibili:
      ```  
      
      > **Note:**  
-     > In the updated version (v1.5), if you are using a third-party API interface and do not require an API Key, you can supply `nullkey` as the second parameter. For example:  
+     > In version **v1.5** and later, if you're using a self-hosted or third-party API that does not require an API key, you can add `nullkey` at the end:  
      > ```
      > gpt-4o-mini|nullkey
      > ```
@@ -182,13 +186,38 @@ Click below to watch the tutorial on Bilibili:
      > ```
      > qwen2.5:7b|https://127.0.0.1:11434/v1/chat/completions|nullkey
      > ```
-     
+
    - **API Key:**  
-     Enter your API key.  
+     Enter your API key if needed.  
      > You can test your API key using **[keytest.obanarchy.org](https://keytest.obanarchy.org/)** to ensure it is valid.
 
 5. **Set the Source and Target Languages:**  
    Configure the source and target languages as required.
+
+---
+
+### Available Models (Examples)
+
+Use the format:  
+```
+ModelName|API Base URL|nullkey (optional)
+```
+
+Here is a list of supported models:
+
+```
+Deepseek: deepseek-chat|https://api.deepseek.com/v1/chat/completions
+Tongyi Qianwen: qwen-plus|https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
+SiliconFlow: siliconflow-chat|https://api.siliconflow.cn/v1/chat/completions
+ERNIE Bot (Wenxin Yiyan): ernie-4.0-turbo-8k|https://qianfan.baidubce.com/v2/chat/completions
+Gemini: gemini-2.0-flash|https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+ChatGLM: chatglm-6b|https://api.chatglm.cn/v1/chat/completions
+LLaMA: llama-13b|https://api.llama.ai/v1/chat/completions
+Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
+DeepSeek-V3: deepseek-v3|https://api.deepseek.com/v3/chat/completions
+DeepSeek-R1: deepseek-r1|https://api.deepseek.com/r1/chat/completions
+Local Deployment (no API key): model-name|127.0.0.1:PORT|nullkey
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
