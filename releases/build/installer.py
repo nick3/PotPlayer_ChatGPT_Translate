@@ -16,6 +16,9 @@ LANGUAGE_STRINGS = {
         "choose_version": "Choose the version to install:",
         "without_context": "Installer without Context Handling",
         "with_context": "Installer with Context Handling",
+        "choose_config": "Allow users to configure plugin in PotPlayer?",
+        "config_yes": "Yes, allow configuration",
+        "config_no": "No, lock configuration",
         "installation_failed": "Installation failed: {}",
         "welcome_message": "Welcome to the PotPlayer ChatGPT Translate Installer (v1.5.1)\n\nPlease follow the steps to install.",
         "new_installer_notice": "This new installer is ready. Press Next to continue.",
@@ -49,6 +52,9 @@ LANGUAGE_STRINGS = {
         "choose_version": "请选择安装的版本：",
         "without_context": "不带上下文处理的安装包",
         "with_context": "带上下文处理的安装包",
+        "choose_config": "是否允许用户在PotPlayer中配置插件？",
+        "config_yes": "是，允许配置",
+        "config_no": "否，锁定配置",
         "installation_failed": "安装失败：{}",
         "welcome_message": "欢迎使用PotPlayer ChatGPT 翻译安装程序 (v1.5.1)\n\n请按照步骤完成安装。",
         "new_installer_notice": "新的安装器已就绪，按“下一步”继续。",
@@ -61,6 +67,9 @@ LANGUAGE_STRINGS = {
         "language_chinese": "中文",
         "with_context_description": "高级上下文处理（翻译更精准，但成本较高）。",
         "without_context_description": "轻量版（不带上下文处理，成本较低）。",
+        "choose_config": "是否允许用户在PotPlayer中配置插件？",
+        "config_yes": "是，允许配置",
+        "config_no": "否，锁定配置",
         "confirm_path": "检测到的PotPlayer路径：\n{}\n是否正确？",
         "license_title": "许可协议",
         "license_agree": "我同意",
@@ -377,11 +386,12 @@ def auto_detect_directory():
     return scan_drives()
 
 class InstallThread(threading.Thread):
-    def __init__(self, install_dir, version, script_dir, callback):
+    def __init__(self, install_dir, version, script_dir, allow_user_config, callback):
         super().__init__()
         self.install_dir = install_dir
         self.version = version
         self.script_dir = script_dir
+        self.allow_user_config = allow_user_config  # 新增：是否允许用户配置
         self.callback = callback
     def run(self):
         lang = self.callback.__self__.language
@@ -425,6 +435,7 @@ class InstallThread(threading.Thread):
                     try:
                         shutil.copy(src_path, new_dest_path)
                         self.callback(f"Installed {new_name}.")
+                        dest_path = new_dest_path  # 更新目标路径为自定义名称
                     except Exception as e:
                         self.callback(merge_bilingual("installation_failed").format(e))
                         return
@@ -432,6 +443,27 @@ class InstallThread(threading.Thread):
                 try:
                     shutil.copy(src_path, dest_path)
                     self.callback(f"Installed {dest_name}.")
+                except Exception as e:
+                    self.callback(merge_bilingual("installation_failed").format(e))
+                    return
+            # 新增：如果安装的文件是 .as（ActionScript）文件，更新其中的配置项：USE_USER_CONFIG
+            if dest_path.lower().endswith(".as"):
+                try:
+                    with open(dest_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    # 替换原有的配置行，假设原代码中有类似 "bool   USE_USER_CONFIG" 的行
+                    new_config_line = "bool   USE_USER_CONFIG        = " + ("true" if self.allow_user_config else "false") + ";"
+                    # 这里采用简单的替换策略，将包含 "USE_USER_CONFIG" 的行替换掉
+                    new_content = []
+                    for line in content.splitlines():
+                        if "USE_USER_CONFIG" in line:
+                            new_content.append(new_config_line)
+                        else:
+                            new_content.append(line)
+                    new_content = "\n".join(new_content)
+                    with open(dest_path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
+                    self.callback(f"Configured {os.path.basename(dest_path)} (user configuration set to {self.allow_user_config}).")
                 except Exception as e:
                     self.callback(merge_bilingual("installation_failed").format(e))
                     return
@@ -445,12 +477,13 @@ class InstallerApp(tk.Tk):
         self.strings = LANGUAGE_STRINGS[self.language]
         self.install_dir = ""
         self.version = ""
+        self.allow_user_config = True  # 新增：是否允许用户在 PotPlayer 中配置（默认允许）
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.title("PotPlayer ChatGPT Translate Installer")
         self.geometry("500x450")
         self.resizable(False, False)
         self.frames = {}
-        for F in (LanguageFrame, WelcomeFrame, LicenseFrame, DirectoryFrame, VersionFrame, ProgressFrame, FinishFrame):
+        for F in (LanguageFrame, WelcomeFrame, LicenseFrame, DirectoryFrame, VersionFrame, ConfigFrame, ProgressFrame, FinishFrame):
             page_name = F.__name__
             frame = F(parent=self, controller=self)
             self.frames[page_name] = frame
@@ -464,7 +497,7 @@ class InstallerApp(tk.Tk):
     def update_progress(self, msg):
         self.frames["ProgressFrame"].append_text(msg)
     def start_installation(self):
-        thread = InstallThread(self.install_dir, self.version, self.script_dir, self.install_callback)
+        thread = InstallThread(self.install_dir, self.version, self.script_dir, self.allow_user_config, self.install_callback)
         thread.start()
     def install_callback(self, msg):
         self.after(0, lambda: self.update_progress(msg))
@@ -607,6 +640,35 @@ class VersionFrame(tk.Frame):
         self.next_btn.config(text=s["next"])
     def next_step(self):
         self.controller.version = self.version_var.get()
+        self.controller.show_frame("ConfigFrame")
+
+class ConfigFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.lbl = tk.Label(self, text="", font=("Arial", 12), wraplength=450)
+        self.lbl.pack(pady=20)
+        self.config_var = tk.StringVar(value="yes")
+        self.rb_yes = tk.Radiobutton(self, text="", variable=self.config_var, value="yes", font=("Arial", 10))
+        self.rb_yes.pack(pady=5)
+        self.rb_no = tk.Radiobutton(self, text="", variable=self.config_var, value="no", font=("Arial", 10))
+        self.rb_no.pack(pady=5)
+        frm = tk.Frame(self)
+        frm.pack(side="bottom", pady=20)
+        self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("VersionFrame"))
+        self.back_btn.pack(side="left", padx=10)
+        self.next_btn = tk.Button(frm, text="", width=10, command=self.next_step)
+        self.next_btn.pack(side="right", padx=10)
+    def on_show(self):
+        s = self.controller.strings
+        self.lbl.config(text=s["choose_config"])
+        self.rb_yes.config(text=s["config_yes"])
+        self.rb_no.config(text=s["config_no"])
+        self.back_btn.config(text=s["back"])
+        self.next_btn.config(text=s["next"])
+    def next_step(self):
+        # 保存管理员选择的配置
+        self.controller.allow_user_config = (self.config_var.get() == "yes")
         self.controller.show_frame("ProgressFrame")
 
 class ProgressFrame(tk.Frame):
