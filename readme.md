@@ -287,6 +287,12 @@ Personal website: [obanarchy.org](https://obanarchy.org)
 
 [![Star History Chart](https://api.star-history.com/svg?repos=felix3322/potplayer_chatgpt_translate&type=Date)](https://www.star-history.com/#felix3322/potplayer_chatgpt_translate&Date)
 
+---
+
+## 好久没更新了？
+
+憋个大的awa
+
 <!-- MARKDOWN LINKS & IMAGES -->
 [stars-shield]: https://img.shields.io/github/stars/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
 [stars-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/stargazers
