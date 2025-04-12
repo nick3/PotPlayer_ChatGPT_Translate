@@ -3,10 +3,16 @@ import sys
 import ctypes
 import threading
 import shutil
-import win32com.client
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
 import webbrowser
+import json
+
+# 如果可用，建议安装 requests 库以方便 HTTP 请求测试
+try:
+    import requests
+except ImportError:
+    requests = None
 
 LANGUAGE_STRINGS = {
     "en": {
@@ -16,10 +22,6 @@ LANGUAGE_STRINGS = {
         "choose_version": "Choose the version to install:",
         "without_context": "Installer without Context Handling",
         "with_context": "Installer with Context Handling",
-        "choose_config": "Allow users to configure plugin in PotPlayer?",
-        "config_yes": "Yes, allow configuration",
-        "config_no": "No, lock configuration",
-        "installation_failed": "Installation failed: {}",
         "welcome_message": "Welcome to the PotPlayer ChatGPT Translate Installer (v1.5.1)\n\nPlease follow the steps to install.",
         "new_installer_notice": "This new installer is ready. Press Next to continue.",
         "select_install_dir": "Select the PotPlayer Translate directory:",
@@ -36,11 +38,25 @@ LANGUAGE_STRINGS = {
         "license_agree": "I Agree",
         "license_disagree": "I Disagree",
         "license_reject": "You must agree to the license to continue.",
+        # 新增配置编辑相关字符串
+        "choose_config_edit": "Edit configuration variables below:",
+        "api_key": "API Key:",
+        "api_url": "API URL:",
+        "model": "Model:",
+        "test_api": "Test API",
+        "test_success": "API test succeeded. Available models updated.",
+        "test_failed": "API test failed: {}",
+        "choose_config": "Do you allow in-PotPlayer configuration?",
+        "config_allow": "Allow configuration",
+        "config_lock": "Lock configuration (force installer settings)",
+        "installation_failed": "Installation failed: {}",
         "install_progress": "Installation Progress:",
         "cancel": "Cancel",
         "finish": "Finish",
         "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
-        "file_exists": "File {} already exists.\nYes: Overwrite (Update)\nNo: Enter a custom name\nCancel: Abort installation",
+        "file_exists": "File {} already exists.",
+        "overwrite": "Overwrite",
+        "create_copy": "Create Copy",
         "installation_cancelled": "Installation cancelled by user.",
         "custom_name_prompt": "Please enter the new file name:",
         "custom_name_empty": "Custom name cannot be empty. Installation cancelled."
@@ -52,10 +68,6 @@ LANGUAGE_STRINGS = {
         "choose_version": "请选择安装的版本：",
         "without_context": "不带上下文处理的安装包",
         "with_context": "带上下文处理的安装包",
-        "choose_config": "是否允许用户在PotPlayer中配置插件？",
-        "config_yes": "是，允许配置",
-        "config_no": "否，锁定配置",
-        "installation_failed": "安装失败：{}",
         "welcome_message": "欢迎使用PotPlayer ChatGPT 翻译安装程序 (v1.5.1)\n\n请按照步骤完成安装。",
         "new_installer_notice": "新的安装器已就绪，按“下一步”继续。",
         "select_install_dir": "请选择PotPlayer的Translate目录：",
@@ -67,25 +79,37 @@ LANGUAGE_STRINGS = {
         "language_chinese": "中文",
         "with_context_description": "高级上下文处理（翻译更精准，但成本较高）。",
         "without_context_description": "轻量版（不带上下文处理，成本较低）。",
-        "choose_config": "是否允许用户在PotPlayer中配置插件？",
-        "config_yes": "是，允许配置",
-        "config_no": "否，锁定配置",
         "confirm_path": "检测到的PotPlayer路径：\n{}\n是否正确？",
         "license_title": "许可协议",
         "license_agree": "我同意",
         "license_disagree": "我不同意",
         "license_reject": "必须同意许可协议才能继续。",
+        # 新增配置编辑相关字符串
+        "choose_config_edit": "请编辑下面的配置变量：",
+        "api_key": "API密钥：",
+        "api_url": "API地址：",
+        "model": "模型：",
+        "test_api": "测试API",
+        "test_success": "API测试成功，可用模型已更新。",
+        "test_failed": "API测试失败：{}",
+        "choose_config": "是否允许在PotPlayer中配置插件？",
+        "config_allow": "允许配置",
+        "config_lock": "锁定配置（必须通过安装包配置）",
+        "installation_failed": "安装失败：{}",
         "install_progress": "安装进度：",
         "cancel": "取消",
         "finish": "完成",
         "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
-        "file_exists": "文件 {} 已存在。\n是: 覆盖升级\n否: 自定义名称\n取消: 取消安装",
+        "file_exists": "文件 {} 已存在。",
+        "overwrite": "覆盖升级",
+        "create_copy": "创建副本",
         "installation_cancelled": "用户取消了安装。",
-        "custom_name_prompt": "请输入新的文件名:",
-        "custom_name_empty": "文件名不能为空，安装已取消"
+        "custom_name_prompt": "请输入新的文件名：",
+        "custom_name_empty": "文件名不能为空，安装已取消。"
     }
 }
 
+# 更新插件中配置变量的文件列表（AS 脚本）
 OFFLINE_FILES = {
     "with_context": [
         ("SubtitleTranslate - ChatGPT.as", "SubtitleTranslate - ChatGPT.as"),
@@ -93,7 +117,7 @@ OFFLINE_FILES = {
     ],
     "without_context": [
         ("SubtitleTranslate - ChatGPT - Without Context.as", "SubtitleTranslate - ChatGPT - Without Context.as"),
-        ("SubtitleTranslate - ChatGPT - Without Context.ico", "SubtitleTranslate - ChatGPT - Without Context.ico")
+        ("SubtitleTranslate - ChatGPT - Without Context.ico", "SubtitleTranslate - ChatGPT - Without Context.as")
     ]
 }
 
@@ -334,6 +358,7 @@ def restart_as_admin():
 
 def get_path_from_shortcut(shortcut_path):
     try:
+        import win32com.client
         shell = win32com.client.Dispatch("WScript.Shell")
         shortcut = shell.CreateShortcut(shortcut_path)
         return shortcut.TargetPath
@@ -385,13 +410,47 @@ def auto_detect_directory():
         return detected
     return scan_drives()
 
+# 自定义文件已存在对话框
+def ask_file_exists_custom(dest_name, s):
+    result = {"choice": None}
+    def on_overwrite():
+        result["choice"] = "overwrite"
+        win.destroy()
+    def on_create_copy():
+        result["choice"] = "create_copy"
+        win.destroy()
+    def on_cancel():
+        result["choice"] = "cancel"
+        win.destroy()
+    win = tk.Toplevel()
+    win.title("File Exists")
+    tk.Label(win, text=s["file_exists"].format(dest_name), wraplength=300, justify="left").pack(pady=10, padx=10)
+    frm = tk.Frame(win)
+    frm.pack(pady=5)
+    btn_overwrite = tk.Button(frm, text=s["overwrite"], width=12, command=on_overwrite)
+    btn_overwrite.pack(side="left", padx=5)
+    btn_create = tk.Button(frm, text=s["create_copy"], width=12, command=on_create_copy)
+    btn_create.pack(side="left", padx=5)
+    btn_cancel = tk.Button(frm, text=s["cancel"], width=12, command=on_cancel)
+    btn_cancel.pack(side="left", padx=5)
+    win.grab_set()
+    win.wait_window()
+    return result["choice"]
+
 class InstallThread(threading.Thread):
-    def __init__(self, install_dir, version, script_dir, allow_user_config, callback):
+    def __init__(self, install_dir, version, script_dir, config_values, callback):
+        """
+        config_values 为字典，包含：
+          - api_key
+          - api_url
+          - selected_model
+          - allow_user_config (bool)：是否允许插件内配置
+        """
         super().__init__()
         self.install_dir = install_dir
         self.version = version
         self.script_dir = script_dir
-        self.allow_user_config = allow_user_config  # 新增：是否允许用户配置
+        self.config_values = config_values
         self.callback = callback
     def run(self):
         lang = self.callback.__self__.language
@@ -404,38 +463,38 @@ class InstallThread(threading.Thread):
                 self.callback(f"Error: Missing file {src_file}.")
                 return
             if os.path.exists(dest_path):
-                res = messagebox.askyesnocancel("File Exists", s["file_exists"].format(dest_name))
-                if res is None:
+                choice = ask_file_exists_custom(dest_name, s)
+                if choice == "cancel" or choice is None:
                     self.callback(merge_bilingual("installation_cancelled"))
                     return
-                elif res is True:
+                elif choice == "overwrite":
                     try:
                         shutil.copy(src_path, dest_path)
                         self.callback(f"Installed {dest_name} (Overwrite updated).")
                     except Exception as e:
                         self.callback(merge_bilingual("installation_failed").format(e))
                         return
-                else:
-                    while True:
-                        new_name = simpledialog.askstring("Custom Name", s["custom_name_prompt"])
-                        if new_name is None:
-                            self.callback(merge_bilingual("installation_cancelled"))
-                            return
-                        new_name = new_name.strip()
-                        if not new_name:
-                            messagebox.showerror("Error", s["custom_name_empty"])
-                            continue
-                        if not os.path.splitext(new_name)[1]:
-                            new_name += os.path.splitext(dest_name)[1]
-                        new_dest_path = os.path.join(self.install_dir, new_name)
-                        if os.path.exists(new_dest_path):
-                            messagebox.showerror("Error", s["file_exists"].format(new_name))
-                            continue
-                        break
+                elif choice == "create_copy":
+                    new_name = simpledialog.askstring("Custom Name", s["custom_name_prompt"], initialvalue=dest_name)
+                    if new_name is None:
+                        self.callback(merge_bilingual("installation_cancelled"))
+                        return
+                    new_name = new_name.strip()
+                    if not new_name:
+                        messagebox.showerror("Error", s["custom_name_empty"])
+                        self.callback(merge_bilingual("installation_cancelled"))
+                        return
+                    if not os.path.splitext(new_name)[1]:
+                        new_name += os.path.splitext(dest_name)[1]
+                    new_dest_path = os.path.join(self.install_dir, new_name)
+                    if os.path.exists(new_dest_path):
+                        messagebox.showerror("Error", s["file_exists"].format(new_name))
+                        self.callback(merge_bilingual("installation_cancelled"))
+                        return
                     try:
                         shutil.copy(src_path, new_dest_path)
                         self.callback(f"Installed {new_name}.")
-                        dest_path = new_dest_path  # 更新目标路径为自定义名称
+                        dest_path = new_dest_path
                     except Exception as e:
                         self.callback(merge_bilingual("installation_failed").format(e))
                         return
@@ -446,24 +505,31 @@ class InstallThread(threading.Thread):
                 except Exception as e:
                     self.callback(merge_bilingual("installation_failed").format(e))
                     return
-            # 新增：如果安装的文件是 .as（ActionScript）文件，更新其中的配置项：USE_USER_CONFIG
+            # 更新 .as 文件中的配置部分
             if dest_path.lower().endswith(".as"):
                 try:
                     with open(dest_path, "r", encoding="utf-8") as f:
                         content = f.read()
-                    # 替换原有的配置行，假设原代码中有类似 "bool   USE_USER_CONFIG" 的行
-                    new_config_line = "bool   USE_USER_CONFIG        = " + ("true" if self.allow_user_config else "false") + ";"
-                    # 这里采用简单的替换策略，将包含 "USE_USER_CONFIG" 的行替换掉
+                    new_api_key_line = 'string CONFIG_API_KEY         = "{}";'.format(self.config_values.get("api_key", ""))
+                    new_model_line = 'string CONFIG_SELECTED_MODEL  = "{}";'.format(self.config_values.get("selected_model", "gpt-4o-mini"))
+                    new_apiurl_line = 'string CONFIG_API_URL         = "{}";'.format(self.config_values.get("api_url", "https://api.openai.com/v1/chat/completions"))
+                    new_allow_config_line = 'bool   ALLOW_SCRIPT_CONFIG    = {};'.format("true" if self.config_values.get("allow_user_config", True) else "false")
                     new_content = []
                     for line in content.splitlines():
-                        if "USE_USER_CONFIG" in line:
-                            new_content.append(new_config_line)
+                        if line.strip().startswith("string CONFIG_API_KEY"):
+                            new_content.append(new_api_key_line)
+                        elif line.strip().startswith("string CONFIG_SELECTED_MODEL"):
+                            new_content.append(new_model_line)
+                        elif line.strip().startswith("string CONFIG_API_URL"):
+                            new_content.append(new_apiurl_line)
+                        elif line.strip().startswith("bool   ALLOW_SCRIPT_CONFIG"):
+                            new_content.append(new_allow_config_line)
                         else:
                             new_content.append(line)
                     new_content = "\n".join(new_content)
                     with open(dest_path, "w", encoding="utf-8") as f:
                         f.write(new_content)
-                    self.callback(f"Configured {os.path.basename(dest_path)} (user configuration set to {self.allow_user_config}).")
+                    self.callback(f"Configured {os.path.basename(dest_path)} (API settings updated).")
                 except Exception as e:
                     self.callback(merge_bilingual("installation_failed").format(e))
                     return
@@ -477,13 +543,17 @@ class InstallerApp(tk.Tk):
         self.strings = LANGUAGE_STRINGS[self.language]
         self.install_dir = ""
         self.version = ""
-        self.allow_user_config = True  # 新增：是否允许用户在 PotPlayer 中配置（默认允许）
+        # 以下配置变量由管理员在配置编辑页面填写
+        self.config_api_key = ""
+        self.config_api_url = ""
+        self.config_selected_model = ""
+        self.allow_user_config = True
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.title("PotPlayer ChatGPT Translate Installer")
-        self.geometry("500x450")
+        self.geometry("500x550")
         self.resizable(False, False)
         self.frames = {}
-        for F in (LanguageFrame, WelcomeFrame, LicenseFrame, DirectoryFrame, VersionFrame, ConfigFrame, ProgressFrame, FinishFrame):
+        for F in (LanguageFrame, WelcomeFrame, LicenseFrame, DirectoryFrame, VersionFrame, ConfigEditFrame, ProgressFrame, FinishFrame):
             page_name = F.__name__
             frame = F(parent=self, controller=self)
             self.frames[page_name] = frame
@@ -497,7 +567,13 @@ class InstallerApp(tk.Tk):
     def update_progress(self, msg):
         self.frames["ProgressFrame"].append_text(msg)
     def start_installation(self):
-        thread = InstallThread(self.install_dir, self.version, self.script_dir, self.allow_user_config, self.install_callback)
+        config_values = {
+            "api_key": self.config_api_key,
+            "api_url": self.config_api_url,
+            "selected_model": self.config_selected_model,
+            "allow_user_config": self.allow_user_config
+        }
+        thread = InstallThread(self.install_dir, self.version, self.script_dir, config_values, self.install_callback)
         thread.start()
     def install_callback(self, msg):
         self.after(0, lambda: self.update_progress(msg))
@@ -640,19 +716,40 @@ class VersionFrame(tk.Frame):
         self.next_btn.config(text=s["next"])
     def next_step(self):
         self.controller.version = self.version_var.get()
-        self.controller.show_frame("ConfigFrame")
+        self.controller.show_frame("ConfigEditFrame")
 
-class ConfigFrame(tk.Frame):
+class ConfigEditFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
+        # 标签说明
         self.lbl = tk.Label(self, text="", font=("Arial", 12), wraplength=450)
-        self.lbl.pack(pady=20)
-        self.config_var = tk.StringVar(value="yes")
-        self.rb_yes = tk.Radiobutton(self, text="", variable=self.config_var, value="yes", font=("Arial", 10))
-        self.rb_yes.pack(pady=5)
-        self.rb_no = tk.Radiobutton(self, text="", variable=self.config_var, value="no", font=("Arial", 10))
-        self.rb_no.pack(pady=5)
+        self.lbl.pack(pady=10)
+        # API Key
+        tk.Label(self, text=self.controller.strings["api_key"], font=("Arial", 10)).pack(anchor="w", padx=20)
+        self.api_key_var = tk.StringVar()
+        self.api_key_entry = tk.Entry(self, textvariable=self.api_key_var, width=50)
+        self.api_key_entry.pack(pady=5, padx=20)
+        # API URL
+        tk.Label(self, text=self.controller.strings["api_url"], font=("Arial", 10)).pack(anchor="w", padx=20)
+        self.api_url_var = tk.StringVar()
+        self.api_url_entry = tk.Entry(self, textvariable=self.api_url_var, width=50)
+        self.api_url_entry.pack(pady=5, padx=20)
+        # 模型下拉框
+        tk.Label(self, text=self.controller.strings["model"], font=("Arial", 10)).pack(anchor="w", padx=20)
+        self.model_var = tk.StringVar()
+        self.model_menu = tk.OptionMenu(self, self.model_var, "gpt-4o-mini")  # 默认值
+        self.model_menu.config(width=45)
+        self.model_menu.pack(pady=5, padx=20)
+        # 测试 API 按钮
+        self.test_btn = tk.Button(self, text=self.controller.strings["test_api"], command=self.test_api)
+        self.test_btn.pack(pady=5)
+        # 允许配置
+        self.allow_config_var = tk.StringVar(value="allow")
+        self.rb_allow = tk.Radiobutton(self, text=self.controller.strings["config_allow"], variable=self.allow_config_var, value="allow", font=("Arial", 10))
+        self.rb_allow.pack(pady=5)
+        self.rb_lock = tk.Radiobutton(self, text=self.controller.strings["config_lock"], variable=self.allow_config_var, value="lock", font=("Arial", 10))
+        self.rb_lock.pack(pady=5)
         frm = tk.Frame(self)
         frm.pack(side="bottom", pady=20)
         self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("VersionFrame"))
@@ -661,14 +758,39 @@ class ConfigFrame(tk.Frame):
         self.next_btn.pack(side="right", padx=10)
     def on_show(self):
         s = self.controller.strings
-        self.lbl.config(text=s["choose_config"])
-        self.rb_yes.config(text=s["config_yes"])
-        self.rb_no.config(text=s["config_no"])
+        self.lbl.config(text=s["choose_config_edit"])
         self.back_btn.config(text=s["back"])
         self.next_btn.config(text=s["next"])
+        # 填入默认值
+        self.api_key_var.set("")
+        self.api_url_var.set("https://api.openai.com/v1/chat/completions")
+        self.model_var.set("gpt-4o-mini")
+    def test_api(self):
+        api_key = self.api_key_var.get().strip()
+        api_url = self.api_url_var.get().strip()
+        if not api_key or not api_url:
+            messagebox.showerror("Error", "API Key and API URL cannot be empty.")
+            return
+        try:
+            models = test_api_and_get_models(api_key, api_url)
+            if models:
+                # 更新下拉框中的选项
+                menu = self.model_menu["menu"]
+                menu.delete(0, "end")
+                for m in models:
+                    menu.add_command(label=m, command=lambda value=m: self.model_var.set(value))
+                self.model_var.set(models[0])
+                messagebox.showinfo("Success", self.controller.strings["test_success"])
+            else:
+                # 如果返回空列表，则仅保留原默认模型
+                messagebox.showwarning("Warning", "No available models found; using default.")
+        except Exception as e:
+            messagebox.showerror("Error", self.controller.strings["test_failed"].format(e))
     def next_step(self):
-        # 保存管理员选择的配置
-        self.controller.allow_user_config = (self.config_var.get() == "yes")
+        self.controller.config_api_key = self.api_key_var.get().strip()
+        self.controller.config_api_url = self.api_url_var.get().strip()
+        self.controller.config_selected_model = self.model_var.get().strip()
+        self.controller.allow_user_config = (self.allow_config_var.get() == "allow")
         self.controller.show_frame("ProgressFrame")
 
 class ProgressFrame(tk.Frame):
