@@ -26,8 +26,6 @@
   </p>
 </div>
 
-# 发行版中的蓝奏云镜像不可用。作者在海外，蓝奏云上传速度非常慢，每次都超时。望国内大佬代上传，可通过issue或[obanarchy.org](https://obanarchy.org)提供的联系方式联系到我。
-
 <!-- HTML Directory (Table of Contents) -->
 <div>
   <h2>📑 Table of Contents</h2>
