@@ -1,115 +1,140 @@
-import os
-import sys
-import ctypes
-import threading
-import shutil
-import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
-import webbrowser
-import json
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+PotPlayer ChatGPT Translate Installer  (PyQt 6 版)
+Author : Felix3322
+"""
 
-# 如果可用，建议安装 requests 库以方便 HTTP 请求测试
+from __future__ import annotations
+import os, sys, shutil, threading, ctypes, json, webbrowser
+from functools import partial
+from pathlib import Path
+from typing import Dict, List
+
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui  import QFont, QDesktopServices
+from PyQt6.QtWidgets import (QApplication, QWidget, QStackedWidget, QLabel, QRadioButton, QPushButton,
+                             QVBoxLayout, QHBoxLayout, QFileDialog, QTextEdit, QLineEdit, QComboBox,
+                             QMessageBox, QButtonGroup, QPlainTextEdit, QProgressBar, QInputDialog)
+
+# ---------- external optional ----------
 try:
     import requests
 except ImportError:
     requests = None
+# ---------------------------------------
 
-LANGUAGE_STRINGS = {
+# ---------------- 预置模型 ↔ APIBase -----------------
+MODEL_CATALOG: Dict[str, str] = {
+    # OpenAI 4.1 & 4o
+    "gpt-4.1":        "https://api.openai.com/v1/chat/completions",
+    "gpt-4.1-mini":   "https://api.openai.com/v1/chat/completions",
+    "gpt-4.1-nano":   "https://api.openai.com/v1/chat/completions",
+    "gpt-4o":         "https://api.openai.com/v1/chat/completions",
+    "gpt-4o-mini":    "https://api.openai.com/v1/chat/completions",
+    # Google Gemini
+    "gemini-1.0":     "https://gemini.googleapis.com/v1/chat/completions",
+    "gemini-pro":     "https://gemini.googleapis.com/v1/chat/completions",
+    "gemini-ultra":   "https://gemini.googleapis.com/v1/chat/completions",
+    # Anthropic Claude‑3
+    "claude-3-opus":  "https://api.anthropic.com/v1/complete",
+    "claude-3-sonic": "https://api.anthropic.com/v1/complete",
+    # Mistral
+    "mistral-large":  "https://api.mistral.ai/v1/chat/completions",
+    "mistral-medium": "https://api.mistral.ai/v1/chat/completions"
+}
+
+# ------------ 双语言字符串 ---------------------------
+LANG = {
     "en": {
-        "admin_required": "This installer needs to be run with administrator privileges.\nPlease restart as administrator.",
-        "select_directory": "Please select the PotPlayer Translate directory.",
-        "installation_complete": "Installation completed successfully!",
-        "choose_version": "Choose the version to install:",
-        "without_context": "Installer without Context Handling",
-        "with_context": "Installer with Context Handling",
-        "welcome_message": "Welcome to the PotPlayer ChatGPT Translate Installer (v1.5.1)\n\nPlease follow the steps to install.",
-        "new_installer_notice": "This new installer is ready. Press Next to continue.",
-        "select_install_dir": "Select the PotPlayer Translate directory:",
-        "browse": "Browse",
-        "next": "Next",
-        "back": "Back",
-        "choose_language": "Choose your language:",
-        "language_english": "English",
-        "language_chinese": "中文",
-        "with_context_description": "Advanced context-aware processing (more accurate but higher cost).",
-        "without_context_description": "Lightweight version without context (lower cost).",
-        "confirm_path": "Detected PotPlayer path:\n{}\nIs this correct?",
-        "license_title": "License Agreement",
-        "license_agree": "I Agree",
-        "license_disagree": "I Disagree",
-        "license_reject": "You must agree to the license to continue.",
-        # 新增配置编辑相关字符串
-        "choose_config_edit": "Edit configuration variables below:",
-        "api_key": "API Key:",
-        "api_url": "API URL:",
-        "model": "Model:",
-        "test_api": "Test API",
-        "test_success": "API test succeeded. Available models updated.",
-        "test_failed": "API test failed: {}",
-        "choose_config": "Do you allow in-PotPlayer configuration?",
-        "config_allow": "Allow configuration",
-        "config_lock": "Lock configuration (force installer settings)",
-        "installation_failed": "Installation failed: {}",
+        "title"          : "PotPlayer ChatGPT Translate Installer",
+        "choose_lang"    : "Choose your language:",
+        "next"           : "Next",  "back": "Back", "cancel": "Cancel", "finish": "Finish",
+        "welcome"        : "Welcome to the PotPlayer ChatGPT Translate Installer (v1.6)\n\nPlease follow the steps to install.",
+        "license"        : "License Agreement",
+        "agree"          : "I Agree", "disagree": "I Disagree",
+        "license_reject" : "You must agree to the license to continue.",
+        "select_dir"     : "Select the PotPlayer Translate directory:",
+        "browse"         : "Browse",
+        "auto_detected"  : "Detected PotPlayer path:\n{}\nIs this correct?",
+        "choose_version" : "Choose the version to install:",
+        "with_ctx"       : "Installer with Context Handling",
+        "without_ctx"    : "Installer without Context Handling",
+        "with_desc"      : "Advanced context‑aware processing (more accurate but higher cost).",
+        "without_desc"   : "Lightweight version without context (lower cost).",
+        "cfg_edit"       : "Edit configuration variables below:",
+        "api_key"        : "API Key:",
+        "api_url"        : "API URL:",
+        "model"          : "Model:",
+        "test_api"       : "Test API",
+        "fix_base"       : "Fix API Base",
+        "test_success"   : "API test succeeded. Available models updated.",
+        "test_failed"    : "API test failed:\n{}",
+        "auto_fixed"     : "Endpoint auto‑fixed to {}\nTest passed.",
+        "config_allow"   : "Allow configuration in PotPlayer script",
+        "config_lock"    : "Lock configuration (use installer settings only)",
         "install_progress": "Installation Progress:",
-        "cancel": "Cancel",
-        "finish": "Finish",
-        "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
-        "file_exists": "File {} already exists.",
-        "overwrite": "Overwrite",
-        "create_copy": "Create Copy",
-        "installation_cancelled": "Installation cancelled by user.",
-        "custom_name_prompt": "Please enter the new file name:",
-        "custom_name_empty": "Custom name cannot be empty. Installation cancelled."
+        "copying"        : "Copying {} ...",
+        "file_exists"    : "File {} already exists.",
+        "overwrite"      : "Overwrite", "create_copy": "Create Copy",
+        "enter_new_name" : "Please enter the new file name:",
+        "name_empty"     : "File name cannot be empty.",
+        "install_cancel" : "Installation cancelled.",
+        "install_complete": "Installation completed successfully!",
+        "install_failed" : "Installation failed: {}",
+        "need_admin"     : "This installer needs to be run with administrator privileges.\nPlease restart as administrator.",
+        "link_openai"    : "Open OpenAI Keys",
+        "link_gemini"    : "Open Gemini Keys",
+        "link_claude"    : "Open Anthropic Keys",
+        "link_mistral"   : "Open Mistral Keys",
+        "author"         : "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate"
     },
     "zh": {
-        "admin_required": "此安装器需要以管理员权限运行，请以管理员身份重启。",
-        "select_directory": "请选择PotPlayer的Translate目录。",
-        "installation_complete": "安装成功！",
-        "choose_version": "请选择安装的版本：",
-        "without_context": "不带上下文处理的安装包",
-        "with_context": "带上下文处理的安装包",
-        "welcome_message": "欢迎使用PotPlayer ChatGPT 翻译安装程序 (v1.5.1)\n\n请按照步骤完成安装。",
-        "new_installer_notice": "新的安装器已就绪，按“下一步”继续。",
-        "select_install_dir": "请选择PotPlayer的Translate目录：",
-        "browse": "浏览",
-        "next": "下一步",
-        "back": "上一步",
-        "choose_language": "选择语言：",
-        "language_english": "English",
-        "language_chinese": "中文",
-        "with_context_description": "高级上下文处理（翻译更精准，但成本较高）。",
-        "without_context_description": "轻量版（不带上下文处理，成本较低）。",
-        "confirm_path": "检测到的PotPlayer路径：\n{}\n是否正确？",
-        "license_title": "许可协议",
-        "license_agree": "我同意",
-        "license_disagree": "我不同意",
-        "license_reject": "必须同意许可协议才能继续。",
-        # 新增配置编辑相关字符串
-        "choose_config_edit": "请编辑下面的配置变量：",
-        "api_key": "API密钥：",
-        "api_url": "API地址：",
-        "model": "模型：",
-        "test_api": "测试API",
-        "test_success": "API测试成功，可用模型已更新。",
-        "test_failed": "API测试失败：{}",
-        "choose_config": "是否允许在PotPlayer中配置插件？",
-        "config_allow": "允许配置",
-        "config_lock": "锁定配置（必须通过安装包配置）",
-        "installation_failed": "安装失败：{}",
+        "title"          : "PotPlayer ChatGPT 翻译安装程序",
+        "choose_lang"    : "选择语言：",
+        "next"           : "下一步",  "back": "上一步", "cancel": "取消", "finish": "完成",
+        "welcome"        : "欢迎使用 PotPlayer ChatGPT 翻译安装程序 (v1.6)\n\n请按步骤完成安装。",
+        "license"        : "许可协议",
+        "agree"          : "我同意", "disagree": "我不同意",
+        "license_reject" : "必须同意许可协议才能继续。",
+        "select_dir"     : "请选择 PotPlayer 的 Translate 目录：",
+        "browse"         : "浏览",
+        "auto_detected"  : "检测到的 PotPlayer 路径：\n{}\n是否正确？",
+        "choose_version" : "请选择安装的版本：",
+        "with_ctx"       : "带上下文处理安装包",
+        "without_ctx"    : "不带上下文处理安装包",
+        "with_desc"      : "高级上下文处理（更精准但成本更高）。",
+        "without_desc"   : "轻量版（无上下文，成本更低）。",
+        "cfg_edit"       : "请编辑下方配置：",
+        "api_key"        : "API 密钥：",
+        "api_url"        : "API 地址：",
+        "model"          : "模型：",
+        "test_api"       : "测试 API",
+        "fix_base"       : "修正 API Base",
+        "test_success"   : "API 测试成功，可用模型已更新。",
+        "test_failed"    : "API 测试失败：\n{}",
+        "auto_fixed"     : "已自动修正为 {}\n测试通过。",
+        "config_allow"   : "允许脚本内配置",
+        "config_lock"    : "锁定配置（仅使用安装器设置）",
         "install_progress": "安装进度：",
-        "cancel": "取消",
-        "finish": "完成",
-        "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
-        "file_exists": "文件 {} 已存在。",
-        "overwrite": "覆盖升级",
-        "create_copy": "创建副本",
-        "installation_cancelled": "用户取消了安装。",
-        "custom_name_prompt": "请输入新的文件名：",
-        "custom_name_empty": "文件名不能为空，安装已取消。"
+        "copying"        : "正在复制 {} ...",
+        "file_exists"    : "文件 {} 已存在。",
+        "overwrite"      : "覆盖", "create_copy": "创建副本",
+        "enter_new_name" : "请输入新的文件名：",
+        "name_empty"     : "文件名不能为空。",
+        "install_cancel" : "安装已取消。",
+        "install_complete": "安装成功！",
+        "install_failed" : "安装失败：{}",
+        "need_admin"     : "此安装器需要以管理员权限运行，请以管理员身份重启。",
+        "link_openai"    : "打开 OpenAI 密钥页面",
+        "link_gemini"    : "打开 Gemini 密钥页面",
+        "link_claude"    : "打开 Anthropic 密钥页面",
+        "link_mistral"   : "打开 Mistral 密钥页面",
+        "author"         : "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate"
     }
 }
 
-# 更新插件中配置变量的文件列表（AS 脚本）
+# --------- 离线脚本/图标文件 ---------
 OFFLINE_FILES = {
     "with_context": [
         ("SubtitleTranslate - ChatGPT.as", "SubtitleTranslate - ChatGPT.as"),
@@ -121,723 +146,355 @@ OFFLINE_FILES = {
     ]
 }
 
-MIT_LICENSE_TEXT = """GNU GENERAL PUBLIC LICENSE
-Version 3, 29 June 2007
-
-Copyright © 2007 Free Software Foundation, Inc. <https://fsf.org/>
-
-Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
-
-Preamble
-The GNU General Public License is a free, copyleft license for software and other kinds of works.
-
-The licenses for most software and other practical works are designed to take away your freedom to share and change the works. By contrast, the GNU General Public License is intended to guarantee your freedom to share and change all versions of a program--to make sure it remains free software for all its users. We, the Free Software Foundation, use the GNU General Public License for most of our software; it applies also to any other work released this way by its authors. You can apply it to your programs, too.
-
-When we speak of free software, we are referring to freedom, not price. Our General Public Licenses are designed to make sure that you have the freedom to distribute copies of free software (and charge for them if you wish), that you receive source code or can get it if you want it, that you can change the software or use pieces of it in new free programs, and that you know you can do these things.
-
-To protect your rights, we need to prevent others from denying you these rights or asking you to surrender the rights. Therefore, you have certain responsibilities if you distribute copies of the software, or if you modify it: responsibilities to respect the freedom of others.
-
-For example, if you distribute copies of such a program, whether gratis or for a fee, you must pass on to the recipients the same freedoms that you received. You must make sure that they, too, receive or can get the source code. And you must show them these terms so they know their rights.
-
-Developers that use the GNU GPL protect your rights with two steps: (1) assert copyright on the software, and (2) offer you this License giving you legal permission to copy, distribute and/or modify it.
-
-For the developers' and authors' protection, the GPL clearly explains that there is no warranty for this free software. For both users' and authors' sake, the GPL requires that modified versions be marked as changed, so that their problems will not be attributed erroneously to authors of previous versions.
-
-Some devices are designed to deny users access to install or run modified versions of the software inside them, although the manufacturer can do so. This is fundamentally incompatible with the aim of protecting users' freedom to change the software. The systematic pattern of such abuse occurs in the area of products for individuals to use, which is precisely where it is most unacceptable. Therefore, we have designed this version of the GPL to prohibit the practice for those products. If such problems arise substantially in other domains, we stand ready to extend this provision to those domains in future versions of the GPL, as needed to protect the freedom of users.
-
-Finally, every program is threatened constantly by software patents. States should not allow patents to restrict development and use of software on general-purpose computers, but in those that do, we wish to avoid the special danger that patents applied to a free program could make it effectively proprietary. To prevent this, the GPL assures that patents cannot be used to render the program non-free.
-
-The precise terms and conditions for copying, distribution and modification follow.
-
-TERMS AND CONDITIONS
-0. Definitions.
-“This License” refers to version 3 of the GNU General Public License.
-
-“Copyright” also means copyright-like laws that apply to other kinds of works, such as semiconductor masks.
-
-“The Program” refers to any copyrightable work licensed under this License. Each licensee is addressed as “you”. “Licensees” and “recipients” may be individuals or organizations.
-
-To “modify” a work means to copy from or adapt all or part of the work in a fashion requiring copyright permission, other than the making of an exact copy. The resulting work is called a “modified version” of the earlier work or a work “based on” the earlier work.
-
-A “covered work” means either the unmodified Program or a work based on the Program.
-
-To “propagate” a work means to do anything with it that, without permission, would make you directly or secondarily liable for infringement under applicable copyright law, except executing it on a computer or modifying a private copy. Propagation includes copying, distribution (with or without modification), making available to the public, and in some countries other activities as well.
-
-To “convey” a work means any kind of propagation that enables other parties to make or receive copies. Mere interaction with a user through a computer network, with no transfer of a copy, is not conveying.
-
-An interactive user interface displays “Appropriate Legal Notices” to the extent that it includes a convenient and prominently visible feature that (1) displays an appropriate copyright notice, and (2) tells the user that there is no warranty for the work (except to the extent that warranties are provided), that licensees may convey the work under this License, and how to view a copy of this License. If the interface presents a list of user commands or options, such as a menu, a prominent item in the list meets this criterion.
-
-1. Source Code.
-The “source code” for a work means the preferred form of the work for making modifications to it. “Object code” means any non-source form of a work.
-
-A “Standard Interface” means an interface that either is an official standard defined by a recognized standards body, or, in the case of interfaces specified for a particular programming language, one that is widely used among developers working in that language.
-
-The “System Libraries” of an executable work include anything, other than the work as a whole, that (a) is included in the normal form of packaging a Major Component, but which is not part of that Major Component, and (b) serves only to enable use of the work with that Major Component, or to implement a Standard Interface for which an implementation is available to the public in source code form. A “Major Component”, in this context, means a major essential component (kernel, window system, and so on) of the specific operating system (if any) on which the executable work runs, or a compiler used to produce the work, or an object code interpreter used to run it.
-
-The “Corresponding Source” for a work in object code form means all the source code needed to generate, install, and (for an executable work) run the object code and to modify the work, including scripts to control those activities. However, it does not include the work's System Libraries, or general-purpose tools or generally available free programs which are used unmodified in performing those activities but which are not part of the work. For example, Corresponding Source includes interface definition files associated with source files for the work, and the source code for shared libraries and dynamically linked subprograms that the work is specifically designed to require, such as by intimate data communication or control flow between those subprograms and other parts of the work.
-
-The Corresponding Source need not include anything that users can regenerate automatically from other parts of the Corresponding Source.
-
-The Corresponding Source for a work in source code form is that same work.
-
-2. Basic Permissions.
-All rights granted under this License are granted for the term of copyright on the Program, and are irrevocable provided the stated conditions are met. This License explicitly affirms your unlimited permission to run the unmodified Program. The output from running a covered work is covered by this License only if the output, given its content, constitutes a covered work. This License acknowledges your rights of fair use or other equivalent, as provided by copyright law.
-
-You may make, run and propagate covered works that you do not convey, without conditions so long as your license otherwise remains in force. You may convey covered works to others for the sole purpose of having them make modifications exclusively for you, or provide you with facilities for running those works, provided that you comply with the terms of this License in conveying all material for which you do not control copyright. Those thus making or running the covered works for you must do so exclusively on your behalf, under your direction and control, on terms that prohibit them from making any copies of your copyrighted material outside their relationship with you.
-
-Conveying under any other circumstances is permitted solely under the conditions stated below. Sublicensing is not allowed; section 10 makes it unnecessary.
-
-3. Protecting Users' Legal Rights From Anti-Circumvention Law.
-No covered work shall be deemed part of an effective technological measure under any applicable law fulfilling obligations under article 11 of the WIPO copyright treaty adopted on 20 December 1996, or similar laws prohibiting or restricting circumvention of such measures.
-
-When you convey a covered work, you waive any legal power to forbid circumvention of technological measures to the extent such circumvention is effected by exercising rights under this License with respect to the covered work, and you disclaim any intention to limit operation or modification of the work as a means of enforcing, against the work's users, your or third parties' legal rights to forbid circumvention of technological measures.
-
-4. Conveying Verbatim Copies.
-You may convey verbatim copies of the Program's source code as you receive it, in any medium, provided that you conspicuously and appropriately publish on each copy an appropriate copyright notice; keep intact all notices stating that this License and any non-permissive terms added in accord with section 7 apply to the code; keep intact all notices of the absence of any warranty; and give all recipients a copy of this License along with the Program.
-
-You may charge any price or no price for each copy that you convey, and you may offer support or warranty protection for a fee.
-
-5. Conveying Modified Source Versions.
-You may convey a work based on the Program, or the modifications to produce it from the Program, in the form of source code under the terms of section 4, provided that you also meet all of these conditions:
-
-a) The work must carry prominent notices stating that you modified it, and giving a relevant date.
-b) The work must carry prominent notices stating that it is released under this License and any conditions added under section 7. This requirement modifies the requirement in section 4 to “keep intact all notices”.
-c) You must license the entire work, as a whole, under this License to anyone who comes into possession of a copy. This License will therefore apply, along with any applicable section 7 additional terms, to the whole of the work, and all its parts, regardless of how they are packaged. This License gives no permission to license the work in any other way, but it does not invalidate such permission if you have separately received it.
-d) If the work has interactive user interfaces, each must display Appropriate Legal Notices; however, if the Program has interactive interfaces that do not display Appropriate Legal Notices, your work need not make them do so.
-A compilation of a covered work with other separate and independent works, which are not by their nature extensions of the covered work, and which are not combined with it such as to form a larger program, in or on a volume of a storage or distribution medium, is called an “aggregate” if the compilation and its resulting copyright are not used to limit the access or legal rights of the compilation's users beyond what the individual works permit. Inclusion of a covered work in an aggregate does not cause this License to apply to the other parts of the aggregate.
-
-6. Conveying Non-Source Forms.
-You may convey a covered work in object code form under the terms of sections 4 and 5, provided that you also convey the machine-readable Corresponding Source under the terms of this License, in one of these ways:
-
-a) Convey the object code in, or embodied in, a physical product (including a physical distribution medium), accompanied by the Corresponding Source fixed on a durable physical medium customarily used for software interchange.
-b) Convey the object code in, or embodied in, a physical product (including a physical distribution medium), accompanied by a written offer, valid for at least three years and valid for as long as you offer spare parts or customer support for that product model, to give anyone who possesses the object code either (1) a copy of the Corresponding Source for all the software in the product that is covered by this License, on a durable physical medium customarily used for software interchange, for a price no more than your reasonable cost of physically performing this conveying of source, or (2) access to copy the Corresponding Source from a network server at no charge.
-c) Convey individual copies of the object code with a copy of the written offer to provide the Corresponding Source. This alternative is allowed only occasionally and noncommercially, and only if you received the object code with such an offer, in accord with subsection 6b.
-d) Convey the object code by offering access from a designated place (gratis or for a charge), and offer equivalent access to the Corresponding Source in the same way through the same place at no further charge. You need not require recipients to copy the Corresponding Source along with the object code. If the place to copy the object code is a network server, the Corresponding Source may be on a different server (operated by you or a third party) that supports equivalent copying facilities, provided you maintain clear directions next to the object code saying where to find the Corresponding Source. Regardless of what server hosts the Corresponding Source, you remain obligated to ensure that it is available for as long as needed to satisfy these requirements.
-e) Convey the object code using peer-to-peer transmission, provided you inform other peers where the object code and Corresponding Source of the work are being offered to the general public at no charge under subsection 6d.
-A separable portion of the object code, whose source code is excluded from the Corresponding Source as a System Library, need not be included in conveying the object code work.
-
-A “User Product” is either (1) a “consumer product”, which means any tangible personal property which is normally used for personal, family, or household purposes, or (2) anything designed or sold for incorporation into a dwelling. In determining whether a product is a consumer product, doubtful cases shall be resolved in favor of coverage. For a particular product received by a particular user, “normally used” refers to a typical or common use of that class of product, regardless of the status of the particular user or of the way in which the particular user actually uses, or expects or is expected to use, the product. A product is a consumer product regardless of whether the product has substantial commercial, industrial or non-consumer uses, unless such uses represent the only significant mode of use of the product.
-
-“Installation Information” for a User Product means any methods, procedures, authorization keys, or other information required to install and execute modified versions of a covered work in that User Product from a modified version of its Corresponding Source. The information must suffice to ensure that the continued functioning of the modified object code is in no case prevented or interfered with solely because modification has been made.
-
-If you convey an object code work under this section in, or with, or specifically for use in, a User Product, and the conveying occurs as part of a transaction in which the right of possession and use of the User Product is transferred to the recipient in perpetuity or for a fixed term (regardless of how the transaction is characterized), the Corresponding Source conveyed under this section must be accompanied by the Installation Information. But this requirement does not apply if neither you nor any third party retains the ability to install modified object code on the User Product (for example, the work has been installed in ROM).
-
-The requirement to provide Installation Information does not include a requirement to continue to provide support service, warranty, or updates for a work that has been modified or installed by the recipient, or for the User Product in which it has been modified or installed. Access to a network may be denied when the modification itself materially and adversely affects the operation of the network or violates the rules and protocols for communication across the network.
-
-Corresponding Source conveyed, and Installation Information provided, in accord with this section must be in a format that is publicly documented (and with an implementation available to the public in source code form), and must require no special password or key for unpacking, reading or copying.
-
-7. Additional Terms.
-“Additional permissions” are terms that supplement the terms of this License by making exceptions from one or more of its conditions. Additional permissions that are applicable to the entire Program shall be treated as though they were included in this License, to the extent that they are valid under applicable law. If additional permissions apply only to part of the Program, that part may be used separately under those permissions, but the entire Program remains governed by this License without regard to the additional permissions.
-
-When you convey a copy of a covered work, you may at your option remove any additional permissions from that copy, or from any part of it. (Additional permissions may be written to require their own removal in certain cases when you modify the work.) You may place additional permissions on material, added by you to a covered work, for which you have or can give appropriate copyright permission.
-
-Notwithstanding any other provision of this License, for material you add to a covered work, you may (if authorized by the copyright holders of that material) supplement the terms of this License with terms:
-
-a) Disclaiming warranty or limiting liability differently from the terms of sections 15 and 16 of this License; or
-b) Requiring preservation of specified reasonable legal notices or author attributions in that material or in the Appropriate Legal Notices displayed by works containing it; or
-c) Prohibiting misrepresentation of the origin of that material, or requiring that modified versions of such material be marked in reasonable ways as different from the original version; or
-d) Limiting the use for publicity purposes of names of licensors or authors of the material; or
-e) Declining to grant rights under trademark law for use of some trade names, trademarks, or service marks; or
-f) Requiring indemnification of licensors and authors of that material by anyone who conveys the material (or modified versions of it) with contractual assumptions of liability to the recipient, for any liability that these contractual assumptions directly impose on those licensors and authors.
-All other non-permissive additional terms are considered “further restrictions” within the meaning of section 10. If the Program as you received it, or any part of it, contains a notice stating that it is governed by this License along with a term that is a further restriction, you may remove that term. If a license document contains a further restriction but permits relicensing or conveying under this License, you may add to a covered work material governed by the terms of that license document, provided that the further restriction does not survive such relicensing or conveying.
-
-If you add terms to a covered work in accord with this section, you must place, in the relevant source files, a statement of the additional terms that apply to those files, or a notice indicating where to find the applicable terms.
-
-Additional terms, permissive or non-permissive, may be stated in the form of a separately written license, or stated as exceptions; the above requirements apply either way.
-
-8. Termination.
-You may not propagate or modify a covered work except as expressly provided under this License. Any attempt otherwise to propagate or modify it is void, and will automatically terminate your rights under this License (including any patent licenses granted under the third paragraph of section 11).
-
-However, if you cease all violation of this License, then your license from a particular copyright holder is reinstated (a) provisionally, unless and until the copyright holder explicitly and finally terminates your license, and (b) permanently, if the copyright holder fails to notify you of the violation by some reasonable means prior to 60 days after the cessation.
-
-Moreover, your license from a particular copyright holder is reinstated permanently if the copyright holder notifies you of the violation by some reasonable means, this is the first time you have received notice of violation of this License (for any work) from that copyright holder, and you cure the violation prior to 30 days after your receipt of the notice.
-
-Termination of your rights under this section does not terminate the licenses of parties who have received copies or rights from you under this License. If your rights have been terminated and not permanently reinstated, you do not qualify to receive new licenses for the same material under section 10.
-
-9. Acceptance Not Required for Having Copies.
-You are not required to accept this License in order to receive or run a copy of the Program. Ancillary propagation of a covered work occurring solely as a consequence of using peer-to-peer transmission to receive a copy likewise does not require acceptance. However, nothing other than this License grants you permission to propagate or modify any covered work. These actions infringe copyright if you do not accept this License. Therefore, by modifying or propagating a covered work, you indicate your acceptance of this License to do so.
-
-10. Automatic Licensing of Downstream Recipients.
-Each time you convey a covered work, the recipient automatically receives a license from the original licensors, to run, modify and propagate that work, subject to this License. You are not responsible for enforcing compliance by third parties with this License.
-
-An “entity transaction” is a transaction transferring control of an organization, or substantially all assets of one, or subdividing an organization, or merging organizations. If propagation of a covered work results from an entity transaction, each party to that transaction who receives a copy of the work also receives whatever licenses to the work the party's predecessor in interest had or could give under the previous paragraph, plus a right to possession of the Corresponding Source of the work from the predecessor in interest, if the predecessor has it or can get it with reasonable efforts.
-
-You may not impose any further restrictions on the exercise of the rights granted or affirmed under this License. For example, you may not impose a license fee, royalty, or other charge for exercise of rights granted under this License, and you may not initiate litigation (including a cross-claim or counterclaim in a lawsuit) alleging that any patent claim is infringed by making, using, selling, offering for sale, or importing the Program or any portion of it.
-
-11. Patents.
-A “contributor” is a copyright holder who authorizes use under this License of the Program or a work on which the Program is based. The work thus licensed is called the contributor's “contributor version”.
-
-A contributor's “essential patent claims” are all patent claims owned or controlled by the contributor, whether already acquired or hereafter acquired, that would be infringed by some manner, permitted by this License, of making, using, or selling its contributor version, but do not include claims that would be infringed only as a consequence of further modification of the contributor version. For purposes of this definition, “control” includes the right to grant patent sublicenses in a manner consistent with the requirements of this License.
-
-Each contributor grants you a non-exclusive, worldwide, royalty-free patent license under the contributor's essential patent claims, to make, use, sell, offer for sale, import and otherwise run, modify and propagate the contents of its contributor version.
-
-In the following three paragraphs, a “patent license” is any express agreement or commitment, however denominated, not to enforce a patent (such as an express permission to practice a patent or covenant not to sue for patent infringement). To “grant” such a patent license to a party means to make such an agreement or commitment not to enforce a patent against the party.
-
-If you convey a covered work, knowingly relying on a patent license, and the Corresponding Source of the work is not available for anyone to copy, free of charge and under the terms of this License, through a publicly available network server or other readily accessible means, then you must either (1) cause the Corresponding Source to be so available, or (2) arrange to deprive yourself of the benefit of the patent license for this particular work, or (3) arrange, in a manner consistent with the requirements of this License, to extend the patent license to downstream recipients. “Knowingly relying” means you have actual knowledge that, but for the patent license, your conveying the covered work in a country, or your recipient's use of the covered work in a country, would infringe one or more identifiable patents in that country that you have reason to believe are valid.
-
-If, pursuant to or in connection with a single transaction or arrangement, you convey, or propagate by procuring conveyance of, a covered work, and grant a patent license to some of the parties receiving the covered work authorizing them to use, propagate, modify or convey a specific copy of the covered work, then the patent license you grant is automatically extended to all recipients of the covered work and works based on it.
-
-A patent license is “discriminatory” if it does not include within the scope of its coverage, prohibits the exercise of, or is conditioned on the non-exercise of one or more of the rights that are specifically granted under this License. You may not convey a covered work if you are a party to an arrangement with a third party that is in the business of distributing software, under which you make payment to the third party based on the extent of your activity of conveying the work, and under which the third party grants, to any of the parties who would receive the covered work from you, a discriminatory patent license (a) in connection with copies of the covered work conveyed by you (or copies made from those copies), or (b) primarily for and in connection with specific products or compilations that contain the covered work, unless you entered into that arrangement, or that patent license was granted, prior to 28 March 2007.
-
-Nothing in this License shall be construed as excluding or limiting any implied license or other defenses to infringement that may otherwise be available to you under applicable patent law.
-
-12. No Surrender of Others' Freedom.
-If conditions are imposed on you (whether by court order, agreement or otherwise) that contradict the conditions of this License, they do not excuse you from the conditions of this License. If you cannot convey a covered work so as to satisfy simultaneously your obligations under this License and any other pertinent obligations, then as a consequence you may not convey it at all. For example, if you agree to terms that obligate you to collect a royalty for further conveying from those to whom you convey the Program, the only way you could satisfy both those terms and this License would be to refrain entirely from conveying the Program.
-
-13. Use with the GNU Affero General Public License.
-Notwithstanding any other provision of this License, you have permission to link or combine any covered work with a work licensed under version 3 of the GNU Affero General Public License into a single combined work, and to convey the resulting work. The terms of this License will continue to apply to the part which is the covered work, but the special requirements of the GNU Affero General Public License, section 13, concerning interaction through a network will apply to the combination as such.
-
-14. Revised Versions of this License.
-The Free Software Foundation may publish revised and/or new versions of the GNU General Public License from time to time. Such new versions will be similar in spirit to the present version, but may differ in detail to address new problems or concerns.
-
-Each version is given a distinguishing version number. If the Program specifies that a certain numbered version of the GNU General Public License “or any later version” applies to it, you have the option of following the terms and conditions either of that numbered version or of any later version published by the Free Software Foundation. If the Program does not specify a version number of the GNU General Public License, you may choose any version ever published by the Free Software Foundation.
-
-If the Program specifies that a proxy can decide which future versions of the GNU General Public License can be used, that proxy's public statement of acceptance of a version permanently authorizes you to choose that version for the Program.
-
-Later license versions may give you additional or different permissions. However, no additional obligations are imposed on any author or copyright holder as a result of your choosing to follow a later version.
-
-15. Disclaimer of Warranty.
-THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
-
-16. Limitation of Liability.
-IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
-
-17. Interpretation of Sections 15 and 16.
-If the disclaimer of warranty and limitation of liability provided above cannot be given local legal effect according to their terms, reviewing courts shall apply local law that most closely approximates an absolute waiver of all civil liability in connection with the Program, unless a warranty or assumption of liability accompanies a copy of the Program in return for a fee.
-
-END OF TERMS AND CONDITIONS
-
-How to Apply These Terms to Your New Programs
-If you develop a new program, and you want it to be of the greatest possible use to the public, the best way to achieve this is to make it free software which everyone can redistribute and change under these terms.
-
-To do so, attach the following notices to the program. It is safest to attach them to the start of each source file to most effectively state the exclusion of warranty; and each file should have at least the “copyright” line and a pointer to where the full notice is found.
-
-    <one line to give the program's name and a brief idea of what it does.>
-    Copyright (C) <year>  <name of author>
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-Also add information on how to contact you by electronic and paper mail.
-
-If the program does terminal interaction, make it output a short notice like this when it starts in an interactive mode:
-
-    <program>  Copyright (C) <year>  <name of author>
-    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
-    This is free software, and you are welcome to redistribute it
-    under certain conditions; type `show c' for details.
-The hypothetical commands `show w' and `show c' should show the appropriate parts of the General Public License. Of course, your program's commands might be different; for a GUI interface, you would use an “about box”.
-
-You should also get your employer (if you work as a programmer) or school, if any, to sign a “copyright disclaimer” for the program, if necessary. For more information on this, and how to apply and follow the GNU GPL, see <https://www.gnu.org/licenses/>.
-
-The GNU General Public License does not permit incorporating your program into proprietary programs. If your program is a subroutine library, you may consider it more useful to permit linking proprietary applications with the library. If this is what you want to do, use the GNU Lesser General Public License instead of this License. But first, please read <https://www.gnu.org/licenses/why-not-lgpl.html>."""
-
-def merge_bilingual(key):
-    return LANGUAGE_STRINGS["en"][key] + "\n\n" + LANGUAGE_STRINGS["zh"][key]
-
-def is_admin():
+SCRIPT_DIR = Path(__file__).resolve().parent
+LICENSE_PATH = SCRIPT_DIR / "../../LICENSE"
+
+# --------- 管理员检测 ----------
+def is_admin() -> bool:
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
+        return ctypes.windll.shell32.IsUserAnAdmin()  # type: ignore
     except Exception:
         return False
 
 def restart_as_admin():
-    messagebox.showwarning("Admin Required", merge_bilingual("admin_required"))
-    params = " ".join([f'"{arg}"' for arg in sys.argv])
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
+    QMessageBox.warning(None, "Admin", LANG["en"]["need_admin"]+"\n\n"+LANG["zh"]["need_admin"])
+    params = " ".join(f'"{a}"' for a in sys.argv)
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)  # type: ignore
     sys.exit()
 
-def get_path_from_shortcut(shortcut_path):
-    try:
-        import win32com.client
-        shell = win32com.client.Dispatch("WScript.Shell")
-        shortcut = shell.CreateShortcut(shortcut_path)
-        return shortcut.TargetPath
-    except Exception:
+# --------- API 测试 & 修正 ----------
+def fix_base(url: str) -> str:
+    url = url.rstrip("/")
+    return url+"/chat/completions" if not url.endswith("chat/completions") else url
+
+def test_api_get_models(api_key: str, api_url: str) -> List[str]:
+    if not requests:
+        raise RuntimeError("`pip install requests` first!")
+    endpoint = fix_base(api_url)
+    headers = {"Authorization": f"Bearer {api_key}",
+               "Content-Type": "application/json"}
+    # ping
+    test_payload = {"model": "gpt-4o-mini", "messages":[{"role":"user","content":"ping"}], "max_tokens":1}
+    r = requests.post(endpoint, headers=headers, json=test_payload, timeout=8)
+    r.raise_for_status()
+    # list
+    base = endpoint.rsplit("/", 2)[0]
+    lst = requests.get(f"{base}/models", headers=headers, timeout=8).json()
+    data = lst.get("data", [])
+    return [d["id"] for d in data if isinstance(d, dict) and "id" in d]
+
+# --------- 复制线程 ----------
+class Worker(QThread):
+    progress = pyqtSignal(str)
+    done     = pyqtSignal()
+
+    def __init__(self, dest: Path, version: str, cfg: Dict[str,str|bool], lang: str):
+        super().__init__()
+        self.dest = dest
+        self.version = version
+        self.cfg = cfg
+        self.t = LANG[lang]
+
+    def emit(self, msg: str):
+        self.progress.emit(msg)
+
+    def run(self):
+        try:
+            for src, dst in OFFLINE_FILES[self.version]:
+                sp = SCRIPT_DIR / src
+                dp = self.dest / dst
+                self.emit(self.t["copying"].format(src))
+                if not sp.exists():
+                    raise FileNotFoundError(src)
+                if dp.exists():
+                    resp = QMessageBox.question(None, "Exists",
+                                self.t["file_exists"].format(dst),
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                    if resp == QMessageBox.StandardButton.No:
+                        new_name, ok = QInputDialog.getText(None, "Custom", self.t["enter_new_name"])
+                        if not ok or not new_name:
+                            self.emit(self.t["install_cancel"])
+                            return
+                        dp = self.dest / (new_name if "." in new_name else new_name+dp.suffix)
+                shutil.copy2(sp, dp)
+
+                if dp.suffix.lower() == ".as":      # 写入配置
+                    txt = dp.read_text(encoding="utf-8").splitlines()
+                    out = []
+                    for line in txt:
+                        s = line.strip()
+                        if s.startswith("string CONFIG_API_KEY"):
+                            out.append(f'string CONFIG_API_KEY         = "{self.cfg["api_key"]}";')
+                        elif s.startswith("string CONFIG_SELECTED_MODEL"):
+                            out.append(f'string CONFIG_SELECTED_MODEL  = "{self.cfg["model"]}";')
+                        elif s.startswith("string CONFIG_API_URL"):
+                            out.append(f'string CONFIG_API_URL         = "{self.cfg["api_url"]}";')
+                        elif s.startswith("bool   USE_USER_CONFIG"):
+                            out.append(f'bool   USE_USER_CONFIG        = {"true" if self.cfg["allow"] else "false"};')
+                        else:
+                            out.append(line)
+                    dp.write_text("\n".join(out), encoding="utf-8")
+            self.emit(self.t["install_complete"])
+        except Exception as e:
+            self.emit(self.t["install_failed"].format(e))
+        finally:
+            self.done.emit()
+
+# ============ UI Pages =============
+class Page(QWidget):
+    def __init__(self, gui:"InstallerGUI"): super().__init__(); self.gui = gui
+
+class LangPage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v = QVBoxLayout(self)
+        self.en = QRadioButton("English"); self.en.setChecked(True)
+        self.cn = QRadioButton("中文")
+        v.addWidget(QLabel(LANG["en"]["choose_lang"]+"\n"+LANG["zh"]["choose_lang"]))
+        v.addWidget(self.en); v.addWidget(self.cn)
+        nxt = QPushButton("Next / 下一步"); v.addWidget(nxt)
+        nxt.clicked.connect(self.next)
+    def next(self):
+        self.gui.lang = "zh" if self.cn.isChecked() else "en"
+        self.gui.setTexts()
+        self.gui.nextPage()
+
+class WelcomePage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v = QVBoxLayout(self)
+        self.label = QLabel(); self.label.setWordWrap(True); self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setFont(QFont("", 11))
+        v.addWidget(self.label,2)
+        nxt = QPushButton(); self.nxt=nxt
+        v.addWidget(nxt); nxt.clicked.connect(self.gui.nextPage)
+        author = QLabel(LANG["en"]["author"]); author.setAlignment(Qt.AlignmentFlag.AlignBottom|Qt.AlignmentFlag.AlignHCenter)
+        author.linkActivated.connect(lambda _: webbrowser.open("https://github.com/Felix3322/PotPlayer_Chatgpt_Translate"))
+        author.setOpenExternalLinks(True); v.addWidget(author)
+    def retranslate(self):
+        t = LANG[self.gui.lang]
+        self.label.setText(t["welcome"])
+        self.nxt.setText(t["next"])
+
+class LicensePage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v = QVBoxLayout(self)
+        self.title = QLabel(); self.title.setAlignment(Qt.AlignmentFlag.AlignCenter); v.addWidget(self.title)
+        txt = QPlainTextEdit(readonly=True); txt.setReadOnly(True); txt.setPlainText(LICENSE_PATH.read_text(encoding="utf-8")); v.addWidget(txt,4)
+        h = QHBoxLayout(); v.addLayout(h)
+        self.agree = QPushButton(); self.dis = QPushButton()
+        h.addWidget(self.agree); h.addWidget(self.dis)
+        self.agree.clicked.connect(self.gui.nextPage)
+        self.dis.clicked.connect(lambda: QMessageBox.warning(self,"",LANG[self.gui.lang]["license_reject"]))
+    def retranslate(self):
+        t = LANG[self.gui.lang]
+        self.title.setText(t["license"])
+        self.agree.setText(t["agree"]); self.dis.setText(t["disagree"])
+
+class DirPage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v = QVBoxLayout(self)
+        self.label = QLabel(); v.addWidget(self.label)
+        h = QHBoxLayout(); self.path = QLineEdit(); self.path.setReadOnly(True); h.addWidget(self.path)
+        self.browse = QPushButton(); h.addWidget(self.browse); v.addLayout(h)
+        btn = QPushButton(); self.next = btn; v.addWidget(btn)
+        self.browse.clicked.connect(self.pick)
+        self.next.clicked.connect(self.proceed)
+    def pick(self):
+        d = QFileDialog.getExistingDirectory(self,"Select")
+        if d: self.path.setText(d)
+    def proceed(self):
+        if not self.path.text():
+            QMessageBox.warning(self,"",LANG[self.gui.lang]["select_dir"])
+            return
+        self.gui.install_dir = Path(self.path.text())
+        self.gui.nextPage()
+    def on_enter(self):
+        t = LANG[self.gui.lang]; self.label.setText(t["select_dir"]); self.browse.setText(t["browse"]); self.next.setText(t["next"])
+        det = self.auto_detect()
+        if det and QMessageBox.question(self,"?",t["auto_detected"].format(det))==QMessageBox.StandardButton.Yes:
+            self.path.setText(det)
+            self.proceed()
+    def auto_detect(self)->str|None:
+        # 简版自动识别
+        for drive in "CDEFGHIJKLMNOPQRSTUVWXYZ":
+            p = Path(f"{drive}:\\Program Files\\DAUM\\PotPlayer\\Extension\\Subtitle\\Translate")
+            if p.exists(): return str(p)
         return None
 
-def get_path_from_installation_dir():
-    base_dirs = [r"C:\Program Files\DAUM\PotPlayer"]
-    for drive in [f"{chr(x)}:\\" for x in range(65, 91) if os.path.exists(f"{chr(x)}:\\")]:
-        base_dirs.append(os.path.join(drive, "DAUM", "PotPlayer"))
-    for d in base_dirs:
-        if os.path.exists(d):
-            translate_dir = os.path.join(d, "Extension", "Subtitle", "Translate")
-            if os.path.exists(translate_dir):
-                return translate_dir
-    return None
+class VerPage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v=QVBoxLayout(self)
+        self.lbl=QLabel(); v.addWidget(self.lbl)
+        self.btnGrp = QButtonGroup(self)
+        self.rb1=QRadioButton(); self.rb2=QRadioButton(); self.btnGrp.addButton(self.rb1); self.btnGrp.addButton(self.rb2)
+        desc1=QLabel(); desc2=QLabel(); desc1.setWordWrap(True); desc2.setWordWrap(True)
+        self.desc1=desc1; self.desc2=desc2
+        v.addWidget(self.rb1); v.addWidget(desc1); v.addWidget(self.rb2); v.addWidget(desc2)
+        h=QHBoxLayout(); self.back=QPushButton(); self.next=QPushButton(); h.addWidget(self.back); h.addWidget(self.next); v.addLayout(h)
+        self.rb1.setChecked(True)
+        self.back.clicked.connect(lambda:self.gui.prevPage())
+        self.next.clicked.connect(self.proceed)
+    def retranslate(self):
+        t=LANG[self.gui.lang]
+        self.lbl.setText(t["choose_version"]); self.rb1.setText(t["with_ctx"]); self.rb2.setText(t["without_ctx"])
+        self.desc1.setText(t["with_desc"]); self.desc2.setText(t["without_desc"])
+        self.back.setText(t["back"]); self.next.setText(t["next"])
+    def proceed(self):
+        self.gui.version = "with_context" if self.rb1.isChecked() else "without_context"
+        self.gui.nextPage()
 
-def scan_drives():
-    for drive in [f"{chr(x)}:\\" for x in range(65, 91) if os.path.exists(f"{chr(x)}:\\")]:
-        path = os.path.join(drive, "Program Files", "DAUM", "PotPlayer", "Extension", "Subtitle", "Translate")
-        if os.path.exists(path):
-            return path
-    return None
-
-def scan_shortcuts():
-    search_dirs = [
-        os.path.join(os.environ.get("USERPROFILE", ""), "Desktop"),
-        os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs")
-    ]
-    for base in search_dirs:
-        if os.path.exists(base):
-            for root, dirs, files in os.walk(base):
-                for file in files:
-                    if file.lower().endswith(".lnk") and "potplayer" in file.lower():
-                        shortcut_path = os.path.join(root, file)
-                        target = get_path_from_shortcut(shortcut_path)
-                        if target and os.path.exists(target):
-                            translate_dir = os.path.join(os.path.dirname(target), "Extension", "Subtitle", "Translate")
-                            if os.path.exists(translate_dir):
-                                return translate_dir
-    return None
-
-def auto_detect_directory():
-    detected = scan_shortcuts()
-    if detected:
-        return detected
-    detected = get_path_from_installation_dir()
-    if detected:
-        return detected
-    return scan_drives()
-
-# 自定义文件已存在对话框
-def ask_file_exists_custom(dest_name, s):
-    result = {"choice": None}
-    def on_overwrite():
-        result["choice"] = "overwrite"
-        win.destroy()
-    def on_create_copy():
-        result["choice"] = "create_copy"
-        win.destroy()
-    def on_cancel():
-        result["choice"] = "cancel"
-        win.destroy()
-    win = tk.Toplevel()
-    win.title("File Exists")
-    tk.Label(win, text=s["file_exists"].format(dest_name), wraplength=300, justify="left").pack(pady=10, padx=10)
-    frm = tk.Frame(win)
-    frm.pack(pady=5)
-    btn_overwrite = tk.Button(frm, text=s["overwrite"], width=12, command=on_overwrite)
-    btn_overwrite.pack(side="left", padx=5)
-    btn_create = tk.Button(frm, text=s["create_copy"], width=12, command=on_create_copy)
-    btn_create.pack(side="left", padx=5)
-    btn_cancel = tk.Button(frm, text=s["cancel"], width=12, command=on_cancel)
-    btn_cancel.pack(side="left", padx=5)
-    win.grab_set()
-    win.wait_window()
-    return result["choice"]
-
-class InstallThread(threading.Thread):
-    def __init__(self, install_dir, version, script_dir, config_values, callback):
-        """
-        config_values 为字典，包含：
-          - api_key
-          - api_url
-          - selected_model
-          - allow_user_config (bool)：是否允许插件内配置
-        """
-        super().__init__()
-        self.install_dir = install_dir
-        self.version = version
-        self.script_dir = script_dir
-        self.config_values = config_values
-        self.callback = callback
-    def run(self):
-        lang = self.callback.__self__.language
-        s = LANGUAGE_STRINGS[lang]
-        for src_file, dest_name in OFFLINE_FILES.get(self.version, []):
-            src_path = os.path.join(self.script_dir, src_file)
-            dest_path = os.path.join(self.install_dir, dest_name)
-            self.callback(f"Copying {src_file} ...")
-            if not os.path.exists(src_path):
-                self.callback(f"Error: Missing file {src_file}.")
+class CfgPage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v=QVBoxLayout(self)
+        self.info=QLabel(); v.addWidget(self.info)
+        # form
+        formlay=QVBoxLayout(); v.addLayout(formlay)
+        self.key=QLineEdit(); self.url=QLineEdit()
+        self.model=QComboBox(); self.model.addItems(MODEL_CATALOG.keys())
+        form_items=[("api_key",self.key),("api_url",self.url),("model",self.model)]
+        for tag,widget in form_items:
+            label=QLabel(); label.setObjectName(tag); formlay.addWidget(label); formlay.addWidget(widget)
+        # quick links
+        linklay=QHBoxLayout(); v.addLayout(linklay)
+        self.l_openai=QPushButton(); self.l_gemini=QPushButton(); self.l_claude=QPushButton(); self.l_mistral=QPushButton()
+        for b,url in [(self.l_openai,"https://platform.openai.com/account/api-keys"),
+                      (self.l_gemini,"https://aistudio.google.com/app/apikey"),
+                      (self.l_claude,"https://console.anthropic.com/settings/keys"),
+                      (self.l_mistral,"https://console.mistral.ai/api-keys")]:
+            b.clicked.connect(partial(QDesktopServices.openUrl, url)); linklay.addWidget(b)
+        # test & fix
+        h=QHBoxLayout(); v.addLayout(h)
+        self.test=QPushButton(); self.fix=QPushButton()
+        h.addWidget(self.test); h.addWidget(self.fix)
+        # allow/lock
+        self.allow_rb=QRadioButton(); self.lock_rb=QRadioButton()
+        self.allow_rb.setChecked(True)
+        v.addWidget(self.allow_rb); v.addWidget(self.lock_rb)
+        # nav
+        nav=QHBoxLayout(); self.back=QPushButton(); self.next=QPushButton()
+        nav.addWidget(self.back); nav.addWidget(self.next); v.addLayout(nav)
+        # signals
+        self.model.currentTextChanged.connect(self.sync_base)
+        self.test.clicked.connect(self.do_test)
+        self.fix.clicked.connect(self.do_fix)
+        self.back.clicked.connect(lambda:self.gui.prevPage())
+        self.next.clicked.connect(self.auto_next)
+    def retranslate(self):
+        t=LANG[self.gui.lang]
+        self.info.setText(t["cfg_edit"])
+        for w in self.findChildren(QLabel):
+            if w.objectName(): w.setText(t[w.objectName()])
+        self.l_openai.setText(t["link_openai"]); self.l_gemini.setText(t["link_gemini"])
+        self.l_claude.setText(t["link_claude"]); self.l_mistral.setText(t["link_mistral"])
+        self.test.setText(t["test_api"]); self.fix.setText(t["fix_base"])
+        self.allow_rb.setText(t["config_allow"]); self.lock_rb.setText(t["config_lock"])
+        self.back.setText(t["back"]); self.next.setText(t["next"])
+        # default values
+        self.model.setCurrentText("gpt-4.1-nano")
+        self.sync_base("gpt-4.1-nano")
+    def sync_base(self, m): self.url.setText(MODEL_CATALOG.get(m, self.url.text()))
+    def do_test(self):
+        t=LANG[self.gui.lang]
+        try:
+            models = test_api_get_models(self.key.text().strip(), self.url.text().strip())
+            self.model.clear(); self.model.addItems(models)
+            QMessageBox.information(self,"OK",t["test_success"])
+        except Exception as e:
+            QMessageBox.warning(self,"ERR",t["test_failed"].format(e))
+    def do_fix(self):
+        self.url.setText(fix_base(self.url.text()))
+        # 立即再测
+        try:
+            test_api_get_models(self.key.text().strip(), self.url.text().strip())
+            QMessageBox.information(self,"",LANG[self.gui.lang]["auto_fixed"].format(self.url.text()))
+        except Exception as e:
+            QMessageBox.warning(self,"ERR",LANG[self.gui.lang]["test_failed"].format(e))
+    def auto_next(self):
+        # 自动验证，再进下一页
+        try:
+            test_api_get_models(self.key.text().strip(), self.url.text().strip())
+        except Exception as e:
+            if QMessageBox.question(self,"ERR",LANG[self.gui.lang]["test_failed"].format(e)+"\n继续？")==QMessageBox.StandardButton.No:
                 return
-            if os.path.exists(dest_path):
-                choice = ask_file_exists_custom(dest_name, s)
-                if choice == "cancel" or choice is None:
-                    self.callback(merge_bilingual("installation_cancelled"))
-                    return
-                elif choice == "overwrite":
-                    try:
-                        shutil.copy(src_path, dest_path)
-                        self.callback(f"Installed {dest_name} (Overwrite updated).")
-                    except Exception as e:
-                        self.callback(merge_bilingual("installation_failed").format(e))
-                        return
-                elif choice == "create_copy":
-                    new_name = simpledialog.askstring("Custom Name", s["custom_name_prompt"], initialvalue=dest_name)
-                    if new_name is None:
-                        self.callback(merge_bilingual("installation_cancelled"))
-                        return
-                    new_name = new_name.strip()
-                    if not new_name:
-                        messagebox.showerror("Error", s["custom_name_empty"])
-                        self.callback(merge_bilingual("installation_cancelled"))
-                        return
-                    if not os.path.splitext(new_name)[1]:
-                        new_name += os.path.splitext(dest_name)[1]
-                    new_dest_path = os.path.join(self.install_dir, new_name)
-                    if os.path.exists(new_dest_path):
-                        messagebox.showerror("Error", s["file_exists"].format(new_name))
-                        self.callback(merge_bilingual("installation_cancelled"))
-                        return
-                    try:
-                        shutil.copy(src_path, new_dest_path)
-                        self.callback(f"Installed {new_name}.")
-                        dest_path = new_dest_path
-                    except Exception as e:
-                        self.callback(merge_bilingual("installation_failed").format(e))
-                        return
-            else:
-                try:
-                    shutil.copy(src_path, dest_path)
-                    self.callback(f"Installed {dest_name}.")
-                except Exception as e:
-                    self.callback(merge_bilingual("installation_failed").format(e))
-                    return
-            # 更新 .as 文件中的配置部分
-            if dest_path.lower().endswith(".as"):
-                try:
-                    with open(dest_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                    new_api_key_line = 'string CONFIG_API_KEY         = "{}";'.format(self.config_values.get("api_key", ""))
-                    new_model_line = 'string CONFIG_SELECTED_MODEL  = "{}";'.format(self.config_values.get("selected_model", "gpt-4o-mini"))
-                    new_apiurl_line = 'string CONFIG_API_URL         = "{}";'.format(self.config_values.get("api_url", "https://api.openai.com/v1/chat/completions"))
-                    new_allow_config_line = 'bool   ALLOW_SCRIPT_CONFIG    = {};'.format("true" if self.config_values.get("allow_user_config", True) else "false")
-                    new_content = []
-                    for line in content.splitlines():
-                        if line.strip().startswith("string CONFIG_API_KEY"):
-                            new_content.append(new_api_key_line)
-                        elif line.strip().startswith("string CONFIG_SELECTED_MODEL"):
-                            new_content.append(new_model_line)
-                        elif line.strip().startswith("string CONFIG_API_URL"):
-                            new_content.append(new_apiurl_line)
-                        elif line.strip().startswith("bool   ALLOW_SCRIPT_CONFIG"):
-                            new_content.append(new_allow_config_line)
-                        else:
-                            new_content.append(line)
-                    new_content = "\n".join(new_content)
-                    with open(dest_path, "w", encoding="utf-8") as f:
-                        f.write(new_content)
-                    self.callback(f"Configured {os.path.basename(dest_path)} (API settings updated).")
-                except Exception as e:
-                    self.callback(merge_bilingual("installation_failed").format(e))
-                    return
-        self.callback(merge_bilingual("installation_complete"))
-        self.callback("DONE")
+        self.gui.cfg = {
+            "api_key": self.key.text().strip(),
+            "api_url": self.url.text().strip(),
+            "model": self.model.currentText(),
+            "allow": self.allow_rb.isChecked()
+        }
+        self.gui.nextPage()
 
-class InstallerApp(tk.Tk):
+class ProgPage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v=QVBoxLayout(self)
+        self.lbl=QLabel(); v.addWidget(self.lbl)
+        self.out=QPlainTextEdit(readonly=True); self.out.setReadOnly(True); v.addWidget(self.out,3)
+        self.cancel=QPushButton(); v.addWidget(self.cancel)
+        self.cancel.clicked.connect(self.gui.close)
+    def retranslate(self):
+        self.lbl.setText(LANG[self.gui.lang]["install_progress"])
+        self.cancel.setText(LANG[self.gui.lang]["cancel"])
+    def start(self):
+        self.out.clear()
+        worker = Worker(self.gui.install_dir, self.gui.version, self.gui.cfg, self.gui.lang)
+        worker.progress.connect(self.out.appendPlainText)
+        worker.done.connect(self.gui.nextPage)
+        worker.start()
+
+class DonePage(Page):
+    def __init__(self, gui):
+        super().__init__(gui)
+        v=QVBoxLayout(self)
+        self.lbl=QLabel(); self.lbl.setAlignment(Qt.AlignmentFlag.AlignCenter); v.addWidget(self.lbl,2)
+        self.btn=QPushButton(); v.addWidget(self.btn)
+        self.btn.clicked.connect(gui.close)
+    def retranslate(self):
+        t=LANG[self.gui.lang]
+        self.lbl.setText(t["install_complete"])
+        self.btn.setText(t["finish"])
+
+# --------------- Main GUI ---------------
+class InstallerGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.language = "en"
-        self.strings = LANGUAGE_STRINGS[self.language]
-        self.install_dir = ""
-        self.version = ""
-        # 以下配置变量由管理员在配置编辑页面填写
-        self.config_api_key = ""
-        self.config_api_url = ""
-        self.config_selected_model = ""
-        self.allow_user_config = True
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.title("PotPlayer ChatGPT Translate Installer")
-        self.geometry("500x550")
-        self.resizable(False, False)
-        self.frames = {}
-        for F in (LanguageFrame, WelcomeFrame, LicenseFrame, DirectoryFrame, VersionFrame, ConfigEditFrame, ProgressFrame, FinishFrame):
-            page_name = F.__name__
-            frame = F(parent=self, controller=self)
-            self.frames[page_name] = frame
-            frame.place(relwidth=1, relheight=1)
-        self.show_frame("LanguageFrame")
-    def show_frame(self, page_name):
-        frame = self.frames[page_name]
-        frame.tkraise()
-        if hasattr(frame, "on_show"):
-            frame.on_show()
-    def update_progress(self, msg):
-        self.frames["ProgressFrame"].append_text(msg)
-    def start_installation(self):
-        config_values = {
-            "api_key": self.config_api_key,
-            "api_url": self.config_api_url,
-            "selected_model": self.config_selected_model,
-            "allow_user_config": self.allow_user_config
-        }
-        thread = InstallThread(self.install_dir, self.version, self.script_dir, config_values, self.install_callback)
-        thread.start()
-    def install_callback(self, msg):
-        self.after(0, lambda: self.update_progress(msg))
-        if msg == "DONE":
-            self.after(2000, lambda: self.show_frame("FinishFrame"))
+        self.lang="en"
+        self.version="with_context"
+        self.cfg={}
+        self.install_dir=Path()
+        self.setWindowTitle(LANG["en"]["title"])
+        self.stack=QStackedWidget(self)
+        v=QVBoxLayout(self); v.addWidget(self.stack)
+        # pages
+        self.pages=[LangPage(self), WelcomePage(self), LicensePage(self),
+                    DirPage(self), VerPage(self), CfgPage(self),
+                    ProgPage(self), DonePage(self)]
+        for p in self.pages: self.stack.addWidget(p)
+        self.setMinimumSize(580,580)
+        self.setTexts()
+    # helpers
+    def setTexts(self):
+        self.setWindowTitle(LANG[self.lang]["title"])
+        for p in self.pages[1:]:    # LangPage 不用重载
+            if hasattr(p,"retranslate"):p.retranslate()
+    def nextPage(self):
+        idx=self.stack.currentIndex()+1
+        if idx<len(self.pages):
+            self.stack.setCurrentIndex(idx)
+            if isinstance(self.pages[idx], DirPage): self.pages[idx].on_enter()
+            if isinstance(self.pages[idx], ProgPage): self.pages[idx].start()
+    def prevPage(self): self.stack.setCurrentIndex(max(0,self.stack.currentIndex()-1))
 
-class LanguageFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lang_var = tk.StringVar(value="en")
-        lbl = tk.Label(self, text=controller.strings["choose_language"], font=("Arial", 12))
-        lbl.pack(pady=20)
-        rb_en = tk.Radiobutton(self, text=controller.strings["language_english"], variable=self.lang_var, value="en", font=("Arial", 10))
-        rb_en.pack(pady=5)
-        rb_zh = tk.Radiobutton(self, text=controller.strings["language_chinese"], variable=self.lang_var, value="zh", font=("Arial", 10))
-        rb_zh.pack(pady=5)
-        btn = tk.Button(self, text=controller.strings["next"], width=12, command=self.select_language)
-        btn.pack(pady=20)
-    def select_language(self):
-        self.controller.language = self.lang_var.get()
-        self.controller.strings = LANGUAGE_STRINGS[self.lang_var.get()]
-        self.controller.show_frame("WelcomeFrame")
-
-class WelcomeFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 14), wraplength=400)
-        self.lbl.pack(pady=40)
-        self.btn = tk.Button(self, text="", width=12, command=lambda: controller.show_frame("LicenseFrame"))
-        self.btn.pack(pady=20)
-        self.author = tk.Label(self, text=controller.strings["author_info"], font=("Arial", 10), fg="blue", cursor="hand2")
-        self.author.pack(side="bottom", pady=10)
-        self.author.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/Felix3322/PotPlayer_Chatgpt_Translate"))
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["welcome_message"])
-        self.btn.config(text=s["next"])
-        self.author.config(text=s["author_info"])
-
-class LicenseFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.title_lbl = tk.Label(self, text=self.controller.strings["license_title"], font=("Arial", 14))
-        self.title_lbl.pack(pady=10)
-        self.text_area = tk.Text(self, height=15, width=60)
-        self.text_area.insert(tk.END, MIT_LICENSE_TEXT)
-        self.text_area.config(state="disabled")
-        self.text_area.pack(pady=10)
-        frm = tk.Frame(self)
-        frm.pack(pady=10)
-        self.agree_btn = tk.Button(frm, text=self.controller.strings["license_agree"], width=15, command=self.agree)
-        self.agree_btn.pack(side="left", padx=5)
-        self.disagree_btn = tk.Button(frm, text=self.controller.strings["license_disagree"], width=15, command=self.disagree)
-        self.disagree_btn.pack(side="left", padx=5)
-    def agree(self):
-        self.controller.show_frame("DirectoryFrame")
-    def disagree(self):
-        messagebox.showwarning("Warning", self.controller.strings["license_reject"])
-        self.controller.destroy()
-
-class DirectoryFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        self.dir_var = tk.StringVar()
-        self.entry = tk.Entry(self, textvariable=self.dir_var, width=50, state="readonly")
-        self.entry.pack(pady=10)
-        self.browse_btn = tk.Button(self, text="", width=10, command=self.browse)
-        self.browse_btn.pack(pady=5)
-        self.err_lbl = tk.Label(self, text="", fg="red")
-        self.err_lbl.pack(pady=5)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=20)
-        self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("LicenseFrame"))
-        self.back_btn.pack(side="left", padx=10)
-        self.next_btn = tk.Button(frm, text="", width=10, command=self.next_step)
-        self.next_btn.pack(side="right", padx=10)
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["select_install_dir"])
-        self.browse_btn.config(text=s["browse"])
-        self.back_btn.config(text=s["back"])
-        self.next_btn.config(text=s["next"])
-        detected = auto_detect_directory()
-        if detected:
-            if messagebox.askyesno("Confirm", s["confirm_path"].format(detected)):
-                self.dir_var.set(detected)
-                self.controller.install_dir = detected
-                self.controller.show_frame("VersionFrame")
-            else:
-                self.dir_var.set("")
-        else:
-            self.dir_var.set("")
-    def browse(self):
-        d = filedialog.askdirectory()
-        if d:
-            self.dir_var.set(d)
-            self.err_lbl.config(text="")
-    def next_step(self):
-        if self.dir_var.get():
-            self.controller.install_dir = self.dir_var.get()
-            self.controller.show_frame("VersionFrame")
-        else:
-            self.err_lbl.config(text=self.controller.strings["select_directory"])
-
-class VersionFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        self.version_var = tk.StringVar(value="with_context")
-        self.rb1 = tk.Radiobutton(self, text="", variable=self.version_var, value="with_context", font=("Arial", 10))
-        self.rb1.pack(pady=5)
-        self.desc1 = tk.Label(self, text="", font=("Arial", 9), wraplength=450, justify="left")
-        self.desc1.pack(pady=2)
-        self.rb2 = tk.Radiobutton(self, text="", variable=self.version_var, value="without_context", font=("Arial", 10))
-        self.rb2.pack(pady=5)
-        self.desc2 = tk.Label(self, text="", font=("Arial", 9), wraplength=450, justify="left")
-        self.desc2.pack(pady=2)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=20)
-        self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("DirectoryFrame"))
-        self.back_btn.pack(side="left", padx=10)
-        self.next_btn = tk.Button(frm, text="", width=10, command=self.next_step)
-        self.next_btn.pack(side="right", padx=10)
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["choose_version"])
-        self.rb1.config(text=s["with_context"])
-        self.desc1.config(text=s["with_context_description"])
-        self.rb2.config(text=s["without_context"])
-        self.desc2.config(text=s["without_context_description"])
-        self.back_btn.config(text=s["back"])
-        self.next_btn.config(text=s["next"])
-    def next_step(self):
-        self.controller.version = self.version_var.get()
-        self.controller.show_frame("ConfigEditFrame")
-
-class ConfigEditFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        # 标签说明
-        self.lbl = tk.Label(self, text="", font=("Arial", 12), wraplength=450)
-        self.lbl.pack(pady=10)
-        # API Key
-        tk.Label(self, text=self.controller.strings["api_key"], font=("Arial", 10)).pack(anchor="w", padx=20)
-        self.api_key_var = tk.StringVar()
-        self.api_key_entry = tk.Entry(self, textvariable=self.api_key_var, width=50)
-        self.api_key_entry.pack(pady=5, padx=20)
-        # API URL
-        tk.Label(self, text=self.controller.strings["api_url"], font=("Arial", 10)).pack(anchor="w", padx=20)
-        self.api_url_var = tk.StringVar()
-        self.api_url_entry = tk.Entry(self, textvariable=self.api_url_var, width=50)
-        self.api_url_entry.pack(pady=5, padx=20)
-        # 模型下拉框
-        tk.Label(self, text=self.controller.strings["model"], font=("Arial", 10)).pack(anchor="w", padx=20)
-        self.model_var = tk.StringVar()
-        self.model_menu = tk.OptionMenu(self, self.model_var, "gpt-4o-mini")  # 默认值
-        self.model_menu.config(width=45)
-        self.model_menu.pack(pady=5, padx=20)
-        # 测试 API 按钮
-        self.test_btn = tk.Button(self, text=self.controller.strings["test_api"], command=self.test_api)
-        self.test_btn.pack(pady=5)
-        # 允许配置
-        self.allow_config_var = tk.StringVar(value="allow")
-        self.rb_allow = tk.Radiobutton(self, text=self.controller.strings["config_allow"], variable=self.allow_config_var, value="allow", font=("Arial", 10))
-        self.rb_allow.pack(pady=5)
-        self.rb_lock = tk.Radiobutton(self, text=self.controller.strings["config_lock"], variable=self.allow_config_var, value="lock", font=("Arial", 10))
-        self.rb_lock.pack(pady=5)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=20)
-        self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("VersionFrame"))
-        self.back_btn.pack(side="left", padx=10)
-        self.next_btn = tk.Button(frm, text="", width=10, command=self.next_step)
-        self.next_btn.pack(side="right", padx=10)
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["choose_config_edit"])
-        self.back_btn.config(text=s["back"])
-        self.next_btn.config(text=s["next"])
-        # 填入默认值
-        self.api_key_var.set("")
-        self.api_url_var.set("https://api.openai.com/v1/chat/completions")
-        self.model_var.set("gpt-4o-mini")
-    def test_api(self):
-        api_key = self.api_key_var.get().strip()
-        api_url = self.api_url_var.get().strip()
-        if not api_key or not api_url:
-            messagebox.showerror("Error", "API Key and API URL cannot be empty.")
-            return
-        try:
-            models = test_api_and_get_models(api_key, api_url)
-            if models:
-                # 更新下拉框中的选项
-                menu = self.model_menu["menu"]
-                menu.delete(0, "end")
-                for m in models:
-                    menu.add_command(label=m, command=lambda value=m: self.model_var.set(value))
-                self.model_var.set(models[0])
-                messagebox.showinfo("Success", self.controller.strings["test_success"])
-            else:
-                # 如果返回空列表，则仅保留原默认模型
-                messagebox.showwarning("Warning", "No available models found; using default.")
-        except Exception as e:
-            messagebox.showerror("Error", self.controller.strings["test_failed"].format(e))
-    def next_step(self):
-        self.controller.config_api_key = self.api_key_var.get().strip()
-        self.controller.config_api_url = self.api_url_var.get().strip()
-        self.controller.config_selected_model = self.model_var.get().strip()
-        self.controller.allow_user_config = (self.allow_config_var.get() == "allow")
-        self.controller.show_frame("ProgressFrame")
-
-class ProgressFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        self.txt = tk.Text(self, height=10, width=60, state="disabled")
-        self.txt.pack(pady=5)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=10)
-        self.cancel_btn = tk.Button(frm, text="", width=10, command=self.controller.destroy)
-        self.cancel_btn.pack()
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["install_progress"])
-        self.cancel_btn.config(text=s["cancel"])
-        self.txt.config(state="normal")
-        self.txt.delete(1.0, tk.END)
-        self.txt.config(state="disabled")
-        self.controller.update_progress("Starting installation...\n开始安装...")
-        self.controller.start_installation()
-    def append_text(self, msg):
-        self.txt.config(state="normal")
-        self.txt.insert(tk.END, msg+"\n")
-        self.txt.see(tk.END)
-        self.txt.config(state="disabled")
-
-class FinishFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 14))
-        self.lbl.pack(pady=40)
-        self.finish_btn = tk.Button(self, text="", width=12, command=controller.destroy)
-        self.finish_btn.pack(pady=20)
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["installation_complete"])
-        self.finish_btn.config(text=s["finish"])
-
+# --------------- main -------------------
 def main():
-    if not is_admin():
-        restart_as_admin()
-    app = InstallerApp()
-    app.mainloop()
-
-if __name__ == "__main__":
+    if not is_admin(): restart_as_admin()
+    app=QApplication(sys.argv)
+    gui=InstallerGUI(); gui.show()
+    sys.exit(app.exec())
+if __name__=="__main__":
     main()
