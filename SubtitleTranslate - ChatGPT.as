@@ -2,9 +2,7 @@
     Real-time subtitle translation for PotPlayer using OpenAI ChatGPT API
 */
 
-// ------------------------------------------------------------------------
 // Plugin Information Functions
-// ------------------------------------------------------------------------
 string GetTitle() {
     return "{$CP949=ChatGPT 번역$}"
          + "{$CP950=ChatGPT 翻譯$}"
@@ -13,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.5.1";
+    return "1.5.2";
 }
 
 string GetDesc() {
@@ -28,10 +26,10 @@ string GetLoginTitle() {
 }
 
 string GetLoginDesc() {
-    return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}"
-         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}";
+    return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4.1-nano|https://api.openai.com/v1/chat/completions).$}"
+         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4.1-nano|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4.1-nano|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4.1-nano|https://api.openai.com/v1/chat/completions).$}";
 }
 
 string GetUserText() {
@@ -48,36 +46,14 @@ string GetPasswordText() {
          + "{$CP0=API Key:$}";
 }
 
-// ------------------------------------------------------------------------
-// 以下新增配置区块（Configuration Variables），用于集中管理各项参数
-// ------------------------------------------------------------------------
-
-// 1. API 及模型相关配置（默认配置，若需要开箱即用可直接填写有效信息）
-string CONFIG_API_KEY         = "";    // 默认 API Key（请填写有效 key，否则无法调用 API）
-string CONFIG_SELECTED_MODEL  = "gpt-4o-mini";  // 默认模型
-string CONFIG_API_URL         = "https://api.openai.com/v1/chat/completions"; // 默认 API 地址
-string CONFIG_USER_AGENT      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";   // 默认用户代理
-
-// 2. 用户配置使用开关：true 则启用用户存储配置，false 则始终使用默认配置参数
-bool   USE_USER_CONFIG        = true;
-
-// 3. 上下文相关配置参数
-int    CONFIG_RESPONSE_MAX_TOKENS      = 1000;   // 请求时预设的响应最大 token 数
-int    CONFIG_RESERVED_TOKENS_FOR_RESP = 1000;   // 上下文截断时预留给响应的 token 数（可调整）
-int    CONFIG_MAX_SUBTITLE_HISTORY     = 1000;   // 历史字幕最大存储数量，超过后自动删除最早记录
-
-// ------------------------------------------------------------------------
-// 插件原有全局变量（Global Variables）
-// ------------------------------------------------------------------------
+// Global Variables
 string api_key = "";
-string selected_model = "gpt-4o-mini"; // Default model
+string selected_model = "gpt-4.1-nano"; // Default model
 string apiUrl = "https://api.openai.com/v1/chat/completions"; // Default API URL
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 array<string> subtitleHistory;  // Global subtitle history
 
-// ------------------------------------------------------------------------
 // Supported Language List
-// ------------------------------------------------------------------------
 array<string> LangTable =
 {
     "", // Auto Detect
@@ -197,9 +173,7 @@ array<string> GetDstLangs() {
     return ret;
 }
 
-// ------------------------------------------------------------------------
-// API Key 和 API Base 验证函数
-// ------------------------------------------------------------------------
+// API Key and API Base verification process
 string ServerLogin(string User, string Pass) {
     string errorAccum = "";
     User = User.Trim();
@@ -239,7 +213,7 @@ string ServerLogin(string User, string Pass) {
         while (apiUrlLocal != "" && apiUrlLocal.substr(apiUrlLocal.length()-1, 1) == "/")
             apiUrlLocal = apiUrlLocal.substr(0, apiUrlLocal.length()-1);
     } else {
-        apiUrlLocal = CONFIG_API_URL;
+        apiUrlLocal = "https://api.openai.com/v1/chat/completions";
     }
     if (!allowNullApiKey && Pass == "") {
         errorAccum += "API Key not configured. Please enter a valid API Key.\n";
@@ -255,7 +229,7 @@ string ServerLogin(string User, string Pass) {
                              "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
                              "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
                              "\"max_tokens\":1,\"temperature\":0}";
-    string testResponse = HostUrlGetString(apiUrlLocal, CONFIG_USER_AGENT, verifyHeaders, testRequestData);
+    string testResponse = HostUrlGetString(apiUrlLocal, UserAgent, verifyHeaders, testRequestData);
     if (testResponse != "") {
         JsonReader testReader;
         JsonValue testRoot;
@@ -281,7 +255,7 @@ string ServerLogin(string User, string Pass) {
     }
     if (apiUrlLocal.find("chat/completions") == -1) {
         string correctedApiUrl = apiUrlLocal + "/chat/completions";
-        string correctedTestResponse = HostUrlGetString(correctedApiUrl, CONFIG_USER_AGENT, verifyHeaders, testRequestData);
+        string correctedTestResponse = HostUrlGetString(correctedApiUrl, UserAgent, verifyHeaders, testRequestData);
         if (correctedTestResponse != "") {
             JsonReader correctedReader;
             JsonValue correctedRoot;
@@ -314,7 +288,7 @@ string ServerLogin(string User, string Pass) {
             verifyUrl = apiUrlLocal.substr(0, pos) + "models";
         else
             verifyUrl = "https://api.openai.com/v1/models";
-        string verifyResponse = HostUrlGetString(verifyUrl, CONFIG_USER_AGENT, verifyHeaders, "");
+        string verifyResponse = HostUrlGetString(verifyUrl, UserAgent, verifyHeaders, "");
         if (verifyResponse == "")
             errorAccum += "Server connection failed: Unable to retrieve model list. Check network and API Base.\n";
         else {
@@ -353,22 +327,18 @@ string ServerLogin(string User, string Pass) {
     return "Unknown error during API verification. Please check your network, API Key, and API Base settings.\n";
 }
 
-// ------------------------------------------------------------------------
-// 登出接口：清除模型名称和 API Key
-// ------------------------------------------------------------------------
+// Logout Interface to clear model name and API Key
 void ServerLogout() {
     api_key = "";
-    selected_model = CONFIG_SELECTED_MODEL;
-    apiUrl = CONFIG_API_URL;
+    selected_model = "gpt-4.1-nano";
+    apiUrl = "https://api.openai.com/v1/chat/completions";
     HostSaveString("gpt_api_key", "");
     HostSaveString("gpt_selected_model", selected_model);
     HostSaveString("gpt_apiUrl", apiUrl);
     HostPrintUTF8("Successfully logged out.\n");
 }
 
-// ------------------------------------------------------------------------
-// JSON 字符串转义函数
-// ------------------------------------------------------------------------
+// JSON String Escape Function
 string JsonEscape(const string &in input) {
     string output = input;
     output.replace("\\", "\\\\");
@@ -380,16 +350,12 @@ string JsonEscape(const string &in input) {
     return output;
 }
 
-// ------------------------------------------------------------------------
-// 估计 token 数量（基于字符长度）
-// ------------------------------------------------------------------------
+// Function to estimate token count based on character length
 int EstimateTokenCount(const string &in text) {
     return int(float(text.length()) / 4);
 }
 
-// ------------------------------------------------------------------------
-// 获取模型的最大上下文 token 数（模型不同，上限不同）
-// ------------------------------------------------------------------------
+// Function to get the model's maximum context length
 int GetModelMaxTokens(const string &in modelName) {
     if (modelName == "gpt-3.5-turbo")
         return 4096;
@@ -397,79 +363,82 @@ int GetModelMaxTokens(const string &in modelName) {
         return 16384;
     else if (modelName == "gpt-4o")
         return 128000;
-    else if (modelName == "gpt-4o-mini")
+    else if (modelName == "gpt-4.1-nano")
         return 128000;
     else
         return 4096;
 }
 
-// ------------------------------------------------------------------------
-// 翻译函数
-// ------------------------------------------------------------------------
+// Translation Function
 string Translate(string Text, string &in SrcLang, string &in DstLang) {
-    // 根据配置加载：若启用用户配置，则通过 HostLoadString 获取，否则使用 CONFIG_* 的默认值
-    api_key = HostLoadString("gpt_api_key", CONFIG_API_KEY);
-    selected_model = HostLoadString("gpt_selected_model", CONFIG_SELECTED_MODEL);
-    apiUrl = HostLoadString("gpt_apiUrl", CONFIG_API_URL);
-    UserAgent = CONFIG_USER_AGENT;
+    api_key = HostLoadString("gpt_api_key", "");
+    selected_model = HostLoadString("gpt_selected_model", "gpt-4.1-nano");
+    apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
 
     if (api_key == "") {
         HostPrintUTF8("API Key not configured. Please enter it in the settings menu.\n");
         return "";
     }
+
     if (DstLang == "" || DstLang == "Auto Detect") {
         HostPrintUTF8("Target language not specified. Please select a target language.\n");
         return "";
     }
+
     if (SrcLang == "" || SrcLang == "Auto Detect") {
         SrcLang = "";
     }
 
-    // 将当前字幕加入历史记录
     subtitleHistory.insertLast(Text);
 
     int maxTokens = GetModelMaxTokens(selected_model);
     string context = "";
     int tokenCount = EstimateTokenCount(Text);
     int i = int(subtitleHistory.length()) - 2;
-    while (i >= 0 && tokenCount < (maxTokens - CONFIG_RESERVED_TOKENS_FOR_RESP)) {
+    while (i >= 0 && tokenCount < (maxTokens - 1000)) {
         string subtitle = subtitleHistory[i];
         int subtitleTokens = EstimateTokenCount(subtitle);
         tokenCount += subtitleTokens;
-        if (tokenCount < (maxTokens - CONFIG_RESERVED_TOKENS_FOR_RESP)) {
+        if (tokenCount < (maxTokens - 1000)) {
             context = subtitle + "\n" + context;
         }
         i--;
     }
 
-    // 超出最大历史记录数量后，删除最早记录
-    if (subtitleHistory.length() > CONFIG_MAX_SUBTITLE_HISTORY) {
+    if (subtitleHistory.length() > 1000) {
         subtitleHistory.removeAt(0);
     }
 
     string systemMsg = "You are a professional subtitle translate tool. I may provide you with context for better translations, but DO NOT output any context.";
     string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\nTranslate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\n" + Text;
+
     if (context != "") {
         userMsg += "\n[Subtitle context (DO NOT OUTPUT):\n" + context + "]";
     }
+
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
+
     string requestData = "{\"model\":\"" + selected_model + "\","
                          "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"},"
                          "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}],"
-                         "\"max_tokens\":" + CONFIG_RESPONSE_MAX_TOKENS + ",\"temperature\":0}";
+                         "\"max_tokens\":1000,\"temperature\":0}";
+
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
+
     string response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
     if (response == "") {
         HostPrintUTF8("Translation request failed. Please check network connection or API Key.\n");
         return "";
     }
+
     JsonReader Reader;
     JsonValue Root;
     if (!Reader.parse(response, Root)) {
         HostPrintUTF8("Failed to parse API response.\n");
         return "";
     }
+
     JsonValue choices = Root["choices"];
     if (choices.isArray() && choices.size() > 0 &&
         choices[0].isObject() &&
@@ -489,6 +458,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         DstLang = "UTF8";
         return translatedText.Trim();
     }
+
     if (Root.isObject() &&
         Root["error"].isObject() &&
         Root["error"]["message"].isString()) {
@@ -501,23 +471,18 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 }
 
-// ------------------------------------------------------------------------
-// 插件初始化函数
-// ------------------------------------------------------------------------
+// Plugin Initialization
 void OnInitialize() {
     HostPrintUTF8("ChatGPT translation plugin loaded.\n");
-    api_key = HostLoadString("gpt_api_key", CONFIG_API_KEY);
-    selected_model = HostLoadString("gpt_selected_model", CONFIG_SELECTED_MODEL);
-    apiUrl = HostLoadString("gpt_apiUrl", CONFIG_API_URL);
-    UserAgent = CONFIG_USER_AGENT;
+    api_key = HostLoadString("gpt_api_key", "");
+    selected_model = HostLoadString("gpt_selected_model", "gpt-4.1-nano");
+    apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
     if (api_key != "") {
         HostPrintUTF8("Saved API Key, model name, and API URL loaded.\n");
     }
 }
 
-// ------------------------------------------------------------------------
-// 插件结束函数
-// ------------------------------------------------------------------------
+// Plugin Finalization
 void OnFinalize() {
     HostPrintUTF8("ChatGPT translation plugin unloaded.\n");
 }
