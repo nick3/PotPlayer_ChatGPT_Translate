@@ -11,7 +11,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.5.1";
+    return "1.5.2";
 }
 
 string GetDesc() {
@@ -26,10 +26,10 @@ string GetLoginTitle() {
 }
 
 string GetLoginDesc() {
-    return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}"
-         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4o-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4o-mini|https://api.openai.com/v1/chat/completions).$}";
+    return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4.1-nano|https://api.openai.com/v1/chat/completions).$}"
+         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4.1-nano|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4.1-nano|https://api.openai.com/v1/chat/completions）。$}"
+         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4.1-nano|https://api.openai.com/v1/chat/completions).$}";
 }
 
 string GetUserText() {
@@ -48,7 +48,7 @@ string GetPasswordText() {
 
 // Global Variables
 string api_key = "";
-string selected_model = "gpt-4o-mini"; // Default model
+string selected_model = "gpt-4.1-nano"; // Default model
 string apiUrl = "https://api.openai.com/v1/chat/completions"; // Default API URL
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 array<string> subtitleHistory;  // Global subtitle history
@@ -330,7 +330,7 @@ string ServerLogin(string User, string Pass) {
 // Logout Interface to clear model name and API Key
 void ServerLogout() {
     api_key = "";
-    selected_model = "gpt-4o-mini";
+    selected_model = "gpt-4.1-nano";
     apiUrl = "https://api.openai.com/v1/chat/completions";
     HostSaveString("gpt_api_key", "");
     HostSaveString("gpt_selected_model", selected_model);
@@ -363,7 +363,7 @@ int GetModelMaxTokens(const string &in modelName) {
         return 16384;
     else if (modelName == "gpt-4o")
         return 128000;
-    else if (modelName == "gpt-4o-mini")
+    else if (modelName == "gpt-4.1-nano")
         return 128000;
     else
         return 4096;
@@ -372,7 +372,7 @@ int GetModelMaxTokens(const string &in modelName) {
 // Translation Function
 string Translate(string Text, string &in SrcLang, string &in DstLang) {
     api_key = HostLoadString("gpt_api_key", "");
-    selected_model = HostLoadString("gpt_selected_model", "gpt-4o-mini");
+    selected_model = HostLoadString("gpt_selected_model", "gpt-4.1-nano");
     apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
 
     if (api_key == "") {
@@ -475,7 +475,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 void OnInitialize() {
     HostPrintUTF8("ChatGPT translation plugin loaded.\n");
     api_key = HostLoadString("gpt_api_key", "");
-    selected_model = HostLoadString("gpt_selected_model", "gpt-4o-mini");
+    selected_model = HostLoadString("gpt_selected_model", "gpt-4.1-nano");
     apiUrl = HostLoadString("gpt_apiUrl", "https://api.openai.com/v1/chat/completions");
     if (api_key != "") {
         HostPrintUTF8("Saved API Key, model name, and API URL loaded.\n");
