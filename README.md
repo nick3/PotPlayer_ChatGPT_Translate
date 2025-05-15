@@ -8,7 +8,7 @@
 <div align="right">
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/readme_zh.md">简体中文</a> | 
   <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/readme_zh-tw.md">繁体中文</a> | 
-  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/readme.md">English</a>
+  <a href="https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/README.md">English</a>
 </div>
 
 <div align="center">
@@ -213,8 +213,6 @@ Gemini: gemini-2.0-flash|https://generativelanguage.googleapis.com/v1beta/openai
 ChatGLM: chatglm-6b|https://api.chatglm.cn/v1/chat/completions
 LLaMA: llama-13b|https://api.llama.ai/v1/chat/completions
 Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
-DeepSeek-V3: deepseek-v3|https://api.deepseek.com/v3/chat/completions
-DeepSeek-R1: deepseek-r1|https://api.deepseek.com/r1/chat/completions
 Local Deployment (no API key): model-name|127.0.0.1:PORT|nullkey
 ```
 
