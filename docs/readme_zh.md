@@ -162,7 +162,7 @@
      你可以仅输入模型名称，这时会使用默认的 API 接口 URL。  
      **示例：**  
      ```
-     gpt-4o-mini
+     gpt-4.1-nano
      ```  
      
      或者，你也可以通过指定自定义 API 接口 URL，格式为：  
@@ -171,13 +171,13 @@
      ```  
      **示例：**  
      ```
-     gpt-4o-mini|https://api.openai.com/v1/chat/completions
+     gpt-4.1-nano|https://api.openai.com/v1/chat/completions
      ```  
      
      > **备注：**  
      > 在新版插件中（版本 1.5），如果需要支持第三方 API 接口且不使用 API Key，可以在第二个参数中填写 `nullkey`。例如：  
      > ```
-     > gpt-4o-mini|nullkey
+     > gpt-4.1-nano|nullkey
      > ```
      > 或者：
      > ```
