@@ -183,7 +183,7 @@ Sure! Here's the updated **README** section, with your extended model API list i
      > ```
      > or:  
      > ```
-     > qwen2.5:7b|https://127.0.0.1:11434/v1/chat/completions|nullkey
+     > qwen2.5:7b|http://127.0.0.1:11434/v1/chat/completions|nullkey
      > ```
 
    - **API Key:**  
