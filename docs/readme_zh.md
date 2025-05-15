@@ -211,8 +211,6 @@ Gemini: gemini-2.0-flash|https://generativelanguage.googleapis.com/v1beta/openai
 ChatGLM: chatglm-6b|https://api.chatglm.cn/v1/chat/completions
 LLaMA: llama-13b|https://api.llama.ai/v1/chat/completions
 Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
-DeepSeek-V3: deepseek-v3|https://api.deepseek.com/v3/chat/completions
-DeepSeek-R1: deepseek-r1|https://api.deepseek.com/r1/chat/completions
 本地部署（无需 API Key）：模型名称|127.0.0.1:端口|nullkey
 ```
 
