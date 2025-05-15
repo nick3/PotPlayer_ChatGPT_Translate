@@ -255,7 +255,7 @@ Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
 
 ## 许可证 📄
 
-本项目采用 MIT 许可证进行分发。更多信息请参阅 LICENSE 文件。
+本项目采用 GPLv3 许可证进行分发。更多信息请参阅 `LICENSE` 文件。
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
 
