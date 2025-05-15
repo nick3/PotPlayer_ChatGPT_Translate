@@ -256,7 +256,7 @@ If you have suggestions for improvements or bug fixes, feel free to open an issu
 
 ## License 📄
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the GPLv3 License. See `LICENSE` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
