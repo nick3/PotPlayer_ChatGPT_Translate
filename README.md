@@ -164,7 +164,7 @@ Sure! Here's the updated **README** section, with your extended model API list i
      You can simply enter the model name, which will use the default API URL.  
      **Example:**  
      ```
-     gpt-4o-mini
+     gpt-4.1-nano
      ```  
      
      Alternatively, specify a custom API URL using the following format:  
@@ -173,13 +173,13 @@ Sure! Here's the updated **README** section, with your extended model API list i
      ```  
      **Example:**  
      ```
-     gpt-4o-mini|https://api.openai.com/v1/chat/completions
+     gpt-4.1-nano|https://api.openai.com/v1/chat/completions
      ```  
      
      > **Note:**  
      > In version **v1.5** and later, if you're using a self-hosted or third-party API that does not require an API key, you can add `nullkey` at the end:  
      > ```
-     > gpt-4o-mini|nullkey
+     > gpt-4.1-nano|nullkey
      > ```
      > or:  
      > ```
