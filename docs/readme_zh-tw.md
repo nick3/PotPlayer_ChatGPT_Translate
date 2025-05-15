@@ -173,7 +173,7 @@
      **範例：**
 
      ```
-     gpt-4o-mini
+     gpt-4.1-nano
      ```
 
      或者，也可指定自訂 API 介面 URL，格式如下：
@@ -185,14 +185,14 @@
      **範例：**
 
      ```
-     gpt-4o-mini|https://api.openai.com/v1/chat/completions
+     gpt-4.1-nano|https://api.openai.com/v1/chat/completions
      ```
 
      > **備註：**
      > 在新版插件（v1.5）中，如需支援第三方 API 且不使用 API Key，可於第二個參數填入 `nullkey`。例如：
      >
      > ```
-     > gpt-4o-mini|nullkey
+     > gpt-4.1-nano|nullkey
      > ```
      >
      > 或者：
