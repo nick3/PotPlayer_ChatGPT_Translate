@@ -275,7 +275,7 @@ Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
 
 ## 授權條款 📄
 
-本專案採 MIT 授權條款。詳情請參閱 LICENSE 檔案。
+本專案採 GPLv3 授權條款。詳情請參閱 `LICENSE` 檔案。
 
 <p align="right">(<a href="#readme-top">回到頂部</a>)</p>
 
