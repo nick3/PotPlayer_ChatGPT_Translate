@@ -422,7 +422,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         choices[0]["message"]["content"].isString()) {
         string translatedText = choices[0]["message"]["content"].asString();
         if (selected_model.find("gemini") != -1) {
-            while (translatedText.substr(translatedText.length() - 1, 1) == "\n") {
+            while (translatedText.length() > 0 && translatedText.substr(translatedText.length() - 1, 1) == "\n") {
                 translatedText = translatedText.substr(0, translatedText.length() - 1);
             }
         }
