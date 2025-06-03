@@ -67,12 +67,12 @@ One key advantage of using ChatGPT for subtitle translation is its ability to un
 
 - **Google Translate Result:**  
   > *"你要老了我他妈的宇宙吗?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Google%20translate.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/Google%20translate.png)  
   _(Nonsensical and incorrect)_
 
 - **ChatGPT Translation Result:**  
   > *"你要像《老黄犬》一样对待我的宇宙?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/ChatGPT.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/ChatGPT.png)  
   _(Correctly captures the reference and intended meaning)_
 
 ## 🧐 ChatGPT Without Context vs. ChatGPT With Context Comparison
@@ -82,12 +82,12 @@ One key advantage of using ChatGPT for subtitle translation is its ability to un
 
 - **ChatGPT Translation (Without Context):**  
   > *"但是，在现实生活中成为一个人甚至更好。"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/without%20context.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/without%20context.png)  
   _(Literal translation, failing to capture the implied meaning)_
 
 - **ChatGPT Translation (With Context):**  
   > *"但在现实生活中成为一个反派更好。"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/using%20context.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/using%20context.png)  
   _(Accurately capturing the intended context)_
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -121,7 +121,7 @@ Click below to watch the tutorial on Bilibili:
 ### Fully Automatic Installation (Recommended) ⚡
 
 1. **Download the Installer:**  
-   [Installer](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/latest)  
+   [Installer](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/releases/latest)  
    *(The installer is open source, so you can review the source code)*
 2. **Run the Installer:**  
    - Double-click `installer.exe` to start the installation.  
@@ -282,7 +282,7 @@ Personal website: [obanarchy.org](https://obanarchy.org)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=felix3322/potplayer_chatgpt_translate&type=Date)](https://www.star-history.com/#felix3322/potplayer_chatgpt_translate&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Felix3322/PotPlayer_ChatGPT_Translate&type=Date)](https://www.star-history.com/#Felix3322/PotPlayer_ChatGPT_Translate&Date)
 
 ---
 

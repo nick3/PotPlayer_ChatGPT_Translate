@@ -67,12 +67,12 @@
 
 - **Google 翻译结果：**  
   > *"你要老了我他妈的宇宙吗?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Google%20translate.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/Google%20translate.png)  
   _(意义不明且不正确)_
 
 - **ChatGPT 翻译结果：**  
   > *"你要像《老黄犬》一样对待我的宇宙?"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/ChatGPT.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/ChatGPT.png)  
   _(准确捕捉了引用及其意图)_
 
 ##  🧐 ChatGPT 无上下文 vs ChatGPT 有上下文对比
@@ -82,12 +82,12 @@
 
 - **ChatGPT 翻译结果（无上下文）：**  
   > *"但是，在现实生活中成为一个人甚至更好。"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/without%20context.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/without%20context.png)  
   _(字面翻译，未能体现隐含意义)_
 
 - **ChatGPT 翻译结果（有上下文）：**  
   > *"但在现实生活中成为一个反派更好。"*  
-  ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/using%20context.png)  
+  ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/using%20context.png)  
   _(准确捕捉语境)_
 
 <p align="right">(<a href="#readme-top">返回顶部</a>)</p>
@@ -121,7 +121,7 @@
 ### 全自动安装（推荐） ⚡
 
 1. **下载安装程序：**  
-   [安装程序](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/latest)  
+   [安装程序](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/releases/latest)  
    *(安装程序是开源的，你可以查看其源码)*
 2. **运行安装程序：**  
    - 双击 installer.exe 启动安装。  
@@ -281,7 +281,7 @@ Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=felix3322/potplayer_chatgpt_translate&type=Date)](https://www.star-history.com/#felix3322/potplayer_chatgpt_translate&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Felix3322/PotPlayer_ChatGPT_Translate&type=Date)](https://www.star-history.com/#Felix3322/PotPlayer_ChatGPT_Translate&Date)
 
 <!-- MARKDOWN LINKS & IMAGES -->
 [stars-shield]: https://img.shields.io/github/stars/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge

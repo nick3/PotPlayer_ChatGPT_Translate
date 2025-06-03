@@ -71,13 +71,13 @@
 * **Google 翻譯結果：**
 
   > *"你要老了我他媽的宇宙嗎？"*
-  > ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/Google%20translate.png)
+  > ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/Google%20translate.png)
   > *(意義不明且不正確)*
 
 * **ChatGPT 翻譯結果：**
 
   > *"你要像《老黃狗》一樣對待我的宇宙？"*
-  > ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/ChatGPT.png)
+  > ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/ChatGPT.png)
   > *(準確捕捉引用及其意圖)*
 
 ## 🧐 ChatGPT 無上下文 vs ChatGPT 有上下文
@@ -89,13 +89,13 @@
 * **ChatGPT 翻譯（無上下文）：**
 
   > *"但是，在現實生活中成為一個人甚至更好。"*
-  > ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/without%20context.png)
+  > ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/without%20context.png)
   > *(字面翻譯，未能體現隱含意義)*
 
 * **ChatGPT 翻譯（有上下文）：**
 
   > *"但在現實生活中成為反派更好。"*
-  > ![](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/blob/master/docs/using%20context.png)
+  > ![](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/blob/master/docs/using%20context.png)
   > *(準確捕捉語境)*
 
 <p align="right">(<a href="#readme-top">回到頂部</a>)</p>
@@ -129,7 +129,7 @@
 ### 全自動安裝（推薦） ⚡
 
 1. **下載安裝程式：**
-   [安裝程式](https://github.com/Felix3322/PotPlayer_Chatgpt_Translate/releases/latest)
+   [安裝程式](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/releases/latest)
    *(安裝程式為開源，可檢視其原始碼)*
 2. **執行安裝程式：**
 
@@ -301,7 +301,7 @@ Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=felix3322/potplayer_chatgpt_translate\&type=Date)](https://www.star-history.com/#felix3322/potplayer_chatgpt_translate&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Felix3322/PotPlayer_ChatGPT_Translate\&type=Date)](https://www.star-history.com/#Felix3322/PotPlayer_ChatGPT_Translate&Date)
 
 <!-- MARKDOWN LINKS & IMAGES -->
 

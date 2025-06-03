@@ -40,7 +40,7 @@ LANGUAGE_STRINGS = {
         "install_progress": "Installation Progress:",
         "cancel": "Cancel",
         "finish": "Finish",
-        "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
+        "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
         "file_exists_3choice": "File {} already exists.\n\nPlease choose:\n- Overwrite & Upgrade\n- Rename\n- Cancel",
         "installation_cancelled": "Installation cancelled by user.",
         "custom_name_prompt": "Please enter the new file name:",
@@ -76,7 +76,7 @@ LANGUAGE_STRINGS = {
         "install_progress": "安装进度：",
         "cancel": "取消",
         "finish": "完成",
-        "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_Chatgpt_Translate",
+        "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
         "file_exists_3choice": "文件 {} 已存在。\n\n请选择：\n- 覆盖升级\n- 重命名\n- 取消",
         "installation_cancelled": "用户取消了安装。",
         "custom_name_prompt": "请输入新的文件名:",
@@ -415,7 +415,7 @@ class WelcomeFrame(tk.Frame):
         self.btn.pack(pady=20)
         self.author = tk.Label(self, text=controller.strings["author_info"], font=("Arial", 10), fg="blue", cursor="hand2")
         self.author.pack(side="bottom", pady=10)
-        self.author.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/Felix3322/PotPlayer_Chatgpt_Translate"))
+        self.author.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/Felix3322/PotPlayer_ChatGPT_Translate"))
     def on_show(self):
         s = self.controller.strings
         self.lbl.config(text=s["welcome_message"])
