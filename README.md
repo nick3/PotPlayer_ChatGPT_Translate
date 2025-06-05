@@ -286,10 +286,6 @@ Personal website: [obanarchy.org](https://obanarchy.org)
 
 ---
 
-## 好久没更新了？
-
-憋个大的awa
-
 <!-- MARKDOWN LINKS & IMAGES -->
 [stars-shield]: https://img.shields.io/github/stars/Felix3322/PotPlayer_ChatGPT_Translate.svg?style=for-the-badge
 [stars-url]: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/stargazers
