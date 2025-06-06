@@ -144,10 +144,6 @@ Click below to watch the tutorial on Bilibili:
 
 ---
 
-Sure! Here's the updated **README** section, with your extended model API list included in English and following the current structure:
-
----
-
 ## Configuration ⚙️
 
 1. **Open PotPlayer's Preferences:**  
