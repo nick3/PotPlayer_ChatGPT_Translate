@@ -31,23 +31,23 @@
 <div>
   <h2>📑 Table of Contents</h2>
   <ol>
-    <li><a href="#about-the-project">About The Project</a></li>
-    <li><a href="#video-tutorial">Video Tutorial</a></li>
-    <li><a href="#built-with">Built With</a></li>
+    <li><a href="#about-the-project-">About The Project</a></li>
+    <li><a href="#video-tutorial-">Video Tutorial</a></li>
+    <li><a href="#built-with-">Built With</a></li>
     <li>
-      <a href="#installation">Installation</a>
+      <a href="#installation-">Installation</a>
       <ol>
-        <li><a href="#fully-automatic-installation">Fully Automatic Installation</a></li>
-        <li><a href="#manual-installation">Manual Installation</a></li>
+        <li><a href="#fully-automatic-installation-recommended-">Fully Automatic Installation</a></li>
+        <li><a href="#manual-installation-">Manual Installation</a></li>
       </ol>
     </li>
-    <li><a href="#configuration">Configuration</a></li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <li><a href="#configuration-">Configuration</a></li>
+    <li><a href="#usage-">Usage</a></li>
+    <li><a href="#roadmap-">Roadmap</a></li>
+    <li><a href="#contributing-">Contributing</a></li>
+    <li><a href="#license-">License</a></li>
+    <li><a href="#contact-">Contact</a></li>
+    <li><a href="#acknowledgments-">Acknowledgments</a></li>
   </ol>
 </div>
 
@@ -141,10 +141,6 @@ Click below to watch the tutorial on Bilibili:
    Replace `C:\Program Files\DAUM\PotPlayer` with your custom PotPlayer installation path if necessary.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
----
-
-Sure! Here's the updated **README** section, with your extended model API list included in English and following the current structure:
 
 ---
 
