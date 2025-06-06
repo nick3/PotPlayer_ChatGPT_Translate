@@ -32,23 +32,23 @@
 <div>
   <h2>📑 目錄</h2>
   <ol>
-    <li><a href="#about-the-project">關於本專案</a></li>
-    <li><a href="#video-tutorial">影片教學</a></li>
-    <li><a href="#built-with">技術棧</a></li>
+    <li><a href="#關於本專案-">關於本專案</a></li>
+    <li><a href="#影片教學-">影片教學</a></li>
+    <li><a href="#技術棧-">技術棧</a></li>
     <li>
-      <a href="#installation">安裝</a>
+      <a href="#安裝-">安裝</a>
       <ol>
-        <li><a href="#fully-automatic-installation">全自動安裝（推薦）</a></li>
-        <li><a href="#manual-installation">手動安裝</a></li>
+        <li><a href="#全自動安裝推薦-">全自動安裝（推薦）</a></li>
+        <li><a href="#手動安裝-">手動安裝</a></li>
       </ol>
     </li>
-    <li><a href="#configuration">配置</a></li>
-    <li><a href="#usage">使用方法</a></li>
-    <li><a href="#roadmap">開發規劃</a></li>
-    <li><a href="#contributing">貢獻指南</a></li>
-    <li><a href="#license">授權條款</a></li>
-    <li><a href="#contact">聯絡方式</a></li>
-    <li><a href="#acknowledgments">致謝</a></li>
+    <li><a href="#配置-">配置</a></li>
+    <li><a href="#使用方法-">使用方法</a></li>
+    <li><a href="#開發規劃-">開發規劃</a></li>
+    <li><a href="#貢獻指南-">貢獻指南</a></li>
+    <li><a href="#授權條款-">授權條款</a></li>
+    <li><a href="#聯絡方式-">聯絡方式</a></li>
+    <li><a href="#致謝-">致謝</a></li>
   </ol>
 </div>
 
