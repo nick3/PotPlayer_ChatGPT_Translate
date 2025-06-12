@@ -123,9 +123,10 @@
 1. **下载安装程序：**  
    [安装程序](https://github.com/Felix3322/PotPlayer_ChatGPT_Translate/releases/latest)  
    *(安装程序是开源的，你可以查看其源码)*
-2. **运行安装程序：**  
-   - 双击 installer.exe 启动安装。  
+2. **运行安装程序：**
+   - 双击 installer.exe 启动安装。
    - 安装程序会自动检测你的 PotPlayer 安装路径并完成安装设置。
+   - 安装过程中会要求验证模型、API 地址和 API Key，并会尝试自动纠正常见配置错误。
 
 ### 手动安装 🔧
 
@@ -211,7 +212,17 @@ Gemini: gemini-2.0-flash|https://generativelanguage.googleapis.com/v1beta/openai
 ChatGLM: chatglm-6b|https://api.chatglm.cn/v1/chat/completions
 LLaMA: llama-13b|https://api.llama.ai/v1/chat/completions
 Code LLaMA: code-llama-34b|https://api.llama.ai/v1/code/completions
-本地部署（无需 API Key）：模型名称|127.0.0.1:端口|nullkey
+OpenAI GPT-4o: gpt-4o|https://api.openai.com/v1/chat/completions
+OpenAI GPT-4 Turbo: gpt-4-turbo|https://api.openai.com/v1/chat/completions
+OpenAI GPT-3.5 Turbo: gpt-3.5-turbo|https://api.openai.com/v1/chat/completions
+Claude 3 Sonnet: claude-3-sonnet-20240229|https://api.anthropic.com/v1/messages
+Mistral Large: mistral-large|https://api.mistral.ai/v1/chat/completions
+Groq Llama 3: llama3-70b-8192|https://api.groq.com/openai/v1/chat/completions
+Perplexity Sonar Large: pplx-70b-online|https://api.perplexity.ai/chat/completions
+Fireworks Mixtral: accounts/fireworks/models/mixtral-8x7b-instruct|https://api.fireworks.ai/inference/v1/chat/completions
+Moonshot v1: moonshot-v1-128k|https://api.moonshot.cn/v1/chat/completions
+Yi 34B Chat: yi-34b-chat|https://api.lingyi.ai/v1/chat/completions
+本地部署（无需 API Key）：模型名称|http://127.0.0.1:端口/v1/chat/completions|nullkey
 ```
 
 你也可以根据需要扩展其他兼容 OpenAI 接口的模型，确保它们支持 `chat/completions` 接口。
