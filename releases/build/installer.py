@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+"""PyQt6 based installer for PotPlayer ChatGPT Translate"""
 import os
 import sys
 import ctypes
@@ -5,11 +7,11 @@ import threading
 import shutil
 import requests
 import win32com.client
-import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
 import webbrowser
 import winreg
 import hashlib
+
+from PyQt6 import QtWidgets, QtCore
 
 PLUGIN_VERSION = "1.5.2"
 
@@ -54,6 +56,7 @@ LANGUAGE_STRINGS = {
         "config_api": "API URL:",
         "config_key": "API Key:",
         "verify": "Verify",
+        "skip": "Skip",
         "verifying": "Verifying...",
         "verify_success": "Verification passed.",
         "verify_fail": "Verification failed:\n{}"
@@ -98,6 +101,7 @@ LANGUAGE_STRINGS = {
         "config_api": "API 地址:",
         "config_key": "API Key:",
         "verify": "验证",
+        "skip": "跳过",
         "verifying": "正在验证...",
         "verify_success": "验证成功。",
         "verify_fail": "验证失败:\n{}"
@@ -115,10 +119,11 @@ OFFLINE_FILES = {
     ]
 }
 
-# ========= 工具函数 =========
+# ========= Utils =========
 
 def merge_bilingual(key):
     return LANGUAGE_STRINGS["en"][key] + "\n\n" + LANGUAGE_STRINGS["zh"][key]
+
 
 def is_admin():
     try:
@@ -126,11 +131,12 @@ def is_admin():
     except Exception:
         return False
 
+
 def restart_as_admin():
-    messagebox.showwarning("Admin Required", merge_bilingual("admin_required"))
     params = " ".join([f'"{arg}"' for arg in sys.argv])
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
     sys.exit()
+
 
 def get_path_from_shortcut(shortcut_path):
     try:
@@ -140,16 +146,17 @@ def get_path_from_shortcut(shortcut_path):
     except Exception:
         return None
 
+
 def scan_shortcuts():
     search_dirs = [
         os.path.join(os.environ.get("USERPROFILE", ""), "Desktop"),
         os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs"),
-        r"C:\Users\Public\Desktop",
-        r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs"
+        r"C:\\Users\\Public\\Desktop",
+        r"C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs"
     ]
     for base in search_dirs:
         if os.path.exists(base):
-            for root, dirs, files in os.walk(base):
+            for root, _, files in os.walk(base):
                 for file in files:
                     if file.lower().endswith(".lnk") and "potplayer" in file.lower():
                         shortcut_path = os.path.join(root, file)
@@ -160,8 +167,9 @@ def scan_shortcuts():
                                 return translate_dir
     return None
 
+
 def get_path_from_installation_dir():
-    base_dirs = [r"C:\Program Files\DAUM\PotPlayer"]
+    base_dirs = [r"C:\\Program Files\\DAUM\\PotPlayer"]
     for drive in [f"{chr(x)}:\\" for x in range(65, 91) if os.path.exists(f"{chr(x)}:\\")]:
         base_dirs.append(os.path.join(drive, "DAUM", "PotPlayer"))
     for d in base_dirs:
@@ -171,12 +179,14 @@ def get_path_from_installation_dir():
                 return translate_dir
     return None
 
+
 def scan_drives():
     for drive in [f"{chr(x)}:\\" for x in range(65, 91) if os.path.exists(f"{chr(x)}:\\")]:
         path = os.path.join(drive, "Program Files", "DAUM", "PotPlayer", "Extension", "Subtitle", "Translate")
         if os.path.exists(path):
             return path
     return None
+
 
 def auto_detect_directory():
     detected = scan_shortcuts()
@@ -187,6 +197,7 @@ def auto_detect_directory():
         return detected
     return scan_drives()
 
+
 def read_license():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     license_path = os.path.join(script_dir, "LICENSE")
@@ -195,9 +206,11 @@ def read_license():
             return f.read()
     return "LICENSE file not found."
 
+
 def ensure_dir_exists(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
+
 
 def verify_api_settings(model, api_url, api_key):
     api_url = api_url.strip().rstrip('/') or "https://api.openai.com/v1/chat/completions"
@@ -228,10 +241,12 @@ def verify_api_settings(model, api_url, api_key):
             pass
     return False, msg
 
+
 def reg_key_name(install_dir, context_type):
     id_base = os.path.abspath(install_dir).lower() + "|" + context_type
     id_hash = hashlib.md5(id_base.encode("utf-8")).hexdigest()[:8]
     return f"PotPlayer_ChatGPT_Translate_{id_hash}"
+
 
 def find_existing_reg_info(install_dir, context_type):
     regname = reg_key_name(install_dir, context_type)
@@ -246,6 +261,7 @@ def find_existing_reg_info(install_dir, context_type):
     except Exception:
         return None
 
+
 def register_software(display_name, uninstall_path, install_dir, key_name, version, context_type):
     reg_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\\" + key_name
     key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, reg_path)
@@ -258,10 +274,11 @@ def register_software(display_name, uninstall_path, install_dir, key_name, versi
     winreg.SetValueEx(key, "ContextType", 0, winreg.REG_SZ, context_type)
     key.Close()
 
+
 def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key_name):
     with open(uninstall_bat_path, "w", encoding="utf-8") as f:
         f.write("@echo off\n")
-        f.write("REM PotPlayer ChatGPT Translate 卸载脚本\n\n")
+        f.write("REM PotPlayer ChatGPT Translate uninstall script\n\n")
         for file in files_to_delete:
             if os.path.isdir(file):
                 f.write(f'rmdir /s /q "{file}"\n')
@@ -271,109 +288,96 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key_name):
         f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key_name}" /f\n')
         f.write("\nexit\n")
 
-# ========= 自定义三按钮弹窗 =========
-def custom_file_exists_dialog(parent, title, msg, btn1, btn2, btn3):
-    result = [None]
-    win = tk.Toplevel(parent)
-    win.title(title)
-    win.geometry("400x200")
-    win.grab_set()
-    tk.Label(win, text=msg, wraplength=380).pack(pady=25)
-    frame = tk.Frame(win)
-    frame.pack(pady=10)
-    def on_select(val):
-        result[0] = val
-        win.destroy()
-    tk.Button(frame, text=btn1, width=14, command=lambda: on_select('overwrite')).pack(side="left", padx=5)
-    tk.Button(frame, text=btn2, width=14, command=lambda: on_select('rename')).pack(side="left", padx=5)
-    tk.Button(frame, text=btn3, width=14, command=lambda: on_select(None)).pack(side="left", padx=5)
-    win.wait_window()
-    return result[0]
+# ========= Dialog Helpers =========
 
-# ========= 安装线程 =========
-class InstallThread(threading.Thread):
-    def __init__(self, parent, install_dir, version, script_dir, callback):
+def custom_file_exists_dialog(parent, title, msg, btn1, btn2, btn3):
+    box = QtWidgets.QMessageBox(parent)
+    box.setWindowTitle(title)
+    box.setText(msg)
+    overwrite = box.addButton(btn1, QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+    rename = box.addButton(btn2, QtWidgets.QMessageBox.ButtonRole.ActionRole)
+    cancel = box.addButton(btn3, QtWidgets.QMessageBox.ButtonRole.RejectRole)
+    box.exec()
+    if box.clickedButton() == overwrite:
+        return 'overwrite'
+    if box.clickedButton() == rename:
+        return 'rename'
+    return None
+
+# ========= Installation Thread =========
+class InstallThread(QtCore.QThread):
+    progress = QtCore.pyqtSignal(str)
+
+    def __init__(self, install_dir, version, script_dir, language):
         super().__init__()
-        self.parent = parent
         self.install_dir = install_dir
-        self.version = version  # "with_context"/"without_context"
+        self.version = version
         self.script_dir = script_dir
-        self.callback = callback
+        self.language = language
         self.files_installed = []
 
     def run(self):
-        lang = self.callback.__self__.language
+        lang = self.language
         s = LANGUAGE_STRINGS[lang]
         context_type = self.version
         key_name = reg_key_name(self.install_dir, context_type)
         display_name = f"PotPlayer ChatGPT Translate v{PLUGIN_VERSION} [{'With context' if context_type=='with_context' else 'Without context'}]"
         reginfo = find_existing_reg_info(self.install_dir, context_type)
-        reg_write = False  # 是否要写注册表
+        reg_write = False
         try:
             ensure_dir_exists(self.install_dir)
             for src_file, dest_name in OFFLINE_FILES.get(self.version, []):
                 src_path = os.path.join(self.script_dir, src_file)
                 dest_path = os.path.join(self.install_dir, dest_name)
-                self.callback(f"Copying {src_file} ...")
+                self.progress.emit(f"Copying {src_file} ...")
                 if not os.path.exists(src_path):
-                    self.callback(f"Error: Missing file {src_file}.")
+                    self.progress.emit(f"Error: Missing file {src_file}.")
                     return
                 if os.path.exists(dest_path):
-                    # === 自定义三按钮弹窗 ===
-                    choice = custom_file_exists_dialog(
-                        self.parent,
-                        "File Exists",
-                        s["file_exists_3choice"].format(dest_name),
-                        "覆盖升级", "重命名", "取消"
-                    )
+                    choice = custom_file_exists_dialog(None, "File Exists", s["file_exists_3choice"].format(dest_name), "Overwrite", "Rename", s["cancel"])
                     if choice is None:
-                        self.callback(merge_bilingual("installation_cancelled"))
+                        self.progress.emit(merge_bilingual("installation_cancelled"))
                         return
                     elif choice == "overwrite":
                         shutil.copy(src_path, dest_path)
-                        self.callback(f"Installed {dest_name} (Overwritten).")
+                        self.progress.emit(f"Installed {dest_name} (Overwritten).")
                         self.files_installed.append(dest_path)
-                        # 判断是否已有注册表（有则升级，无则询问新建）
                         if reginfo:
-                            # 升级，弹窗是否更新注册表
-                            if messagebox.askyesno("注册表", s["ask_reg_upgrade"]):
+                            box = QtWidgets.QMessageBox
+                            if box.question(None, "Registry", s["ask_reg_upgrade"], box.StandardButton.Yes | box.StandardButton.No) == box.StandardButton.Yes:
                                 reg_write = True
                         else:
-                            # 手动/历史文件，询问是否补注册表
-                            if messagebox.askyesno("注册表", s["ask_reg_write"]):
+                            if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_write"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
                                 reg_write = True
                     elif choice == "rename":
                         while True:
-                            new_name = simpledialog.askstring("Custom Name", s["custom_name_prompt"])
-                            if new_name is None:
-                                self.callback(merge_bilingual("installation_cancelled"))
+                            ok, new_name = QtWidgets.QInputDialog.getText(None, "Custom Name", s["custom_name_prompt"])
+                            if not ok:
+                                self.progress.emit(merge_bilingual("installation_cancelled"))
                                 return
                             new_name = new_name.strip()
                             if not new_name:
-                                messagebox.showerror("Error", s["custom_name_empty"])
+                                QtWidgets.QMessageBox.warning(None, "Error", s["custom_name_empty"])
                                 continue
                             if not os.path.splitext(new_name)[1]:
                                 new_name += os.path.splitext(dest_name)[1]
                             new_dest_path = os.path.join(self.install_dir, new_name)
                             if os.path.exists(new_dest_path):
-                                messagebox.showerror("Error", s["file_exists_3choice"].format(new_name))
+                                QtWidgets.QMessageBox.warning(None, "Error", s["file_exists_3choice"].format(new_name))
                                 continue
                             shutil.copy(src_path, new_dest_path)
-                            self.callback(f"Installed {new_name}.")
+                            self.progress.emit(f"Installed {new_name}.")
                             self.files_installed.append(new_dest_path)
-                            # 重命名的安装通常没有注册表，问是否写入注册表
-                            if messagebox.askyesno("注册表", s["ask_reg_new"]):
+                            if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_new"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
                                 reg_write = True
                             break
                 else:
                     shutil.copy(src_path, dest_path)
-                    self.callback(f"Installed {dest_name}.")
+                    self.progress.emit(f"Installed {dest_name}.")
                     self.files_installed.append(dest_path)
-                    # 纯新增问是否写注册表（未装/新文件）
-                    if messagebox.askyesno("注册表", s["ask_reg_new"]):
+                    if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_new"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
                         reg_write = True
 
-            # ========== 卸载脚本 & 注册表 ================
             if reg_write:
                 tools_dir = os.path.join(self.install_dir, "tools")
                 ensure_dir_exists(tools_dir)
@@ -389,301 +393,276 @@ class InstallThread(threading.Thread):
                     version=PLUGIN_VERSION,
                     context_type=context_type
                 )
-            self.callback(merge_bilingual("installation_complete"))
-            self.callback("DONE")
+            self.progress.emit(merge_bilingual("installation_complete"))
+            self.progress.emit("DONE")
         except Exception as e:
-            self.callback(merge_bilingual("installation_failed").format(str(e)))
+            self.progress.emit(merge_bilingual("installation_failed").format(str(e)))
             return
 
-# ========= UI =========
-class InstallerApp(tk.Tk):
-    def __init__(self):
+# ========= Wizard Pages =========
+class LanguagePage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
         super().__init__()
-        self.language = "en"
-        self.strings = LANGUAGE_STRINGS[self.language]
-        self.install_dir = ""
-        self.version = ""
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.title("PotPlayer ChatGPT Translate Installer")
-        self.geometry("500x450")
-        self.resizable(False, False)
-        self.frames = {}
-        for F in (LanguageFrame, WelcomeFrame, LicenseFrame, DirectoryFrame, VersionFrame, ConfigFrame, ProgressFrame, FinishFrame):
-            page_name = F.__name__
-            frame = F(parent=self, controller=self)
-            self.frames[page_name] = frame
-            frame.place(relwidth=1, relheight=1)
-        self.show_frame("LanguageFrame")
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        self.rb_en = QtWidgets.QRadioButton()
+        self.rb_zh = QtWidgets.QRadioButton()
+        self.rb_en.setChecked(True)
+        layout.addWidget(QtWidgets.QLabel())
+        layout.addWidget(self.rb_en)
+        layout.addWidget(self.rb_zh)
+        self.setLayout(layout)
 
-    def show_frame(self, page_name):
-        frame = self.frames[page_name]
-        frame.tkraise()
-        if hasattr(frame, "on_show"):
-            frame.on_show()
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["choose_language"])
+        self.rb_en.setText(s["language_english"])
+        self.rb_zh.setText(s["language_chinese"])
 
-    def update_progress(self, msg):
-        self.frames["ProgressFrame"].append_text(msg)
+    def validatePage(self):
+        self.wizard.language = 'zh' if self.rb_zh.isChecked() else 'en'
+        self.wizard.strings = LANGUAGE_STRINGS[self.wizard.language]
+        return True
 
-    def start_installation(self):
-        thread = InstallThread(self, self.install_dir, self.version, self.script_dir, self.install_callback)
-        thread.start()
+class WelcomePage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        self.label = QtWidgets.QLabel()
+        self.label.setWordWrap(True)
+        layout.addWidget(self.label)
+        self.author = QtWidgets.QLabel()
+        self.author.setOpenExternalLinks(True)
+        layout.addWidget(self.author)
+        self.setLayout(layout)
 
-    def install_callback(self, msg):
-        self.after(0, lambda: self.update_progress(msg))
-        if msg == "DONE":
-            self.after(2000, lambda: self.show_frame("FinishFrame"))
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle("PotPlayer ChatGPT Translate")
+        self.label.setText(s["welcome_message"])
+        self.author.setText(f"<a href='https://github.com/Felix3322/PotPlayer_ChatGPT_Translate'>{s['author_info']}</a>")
 
-class LanguageFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lang_var = tk.StringVar(value="en")
-        lbl = tk.Label(self, text=controller.strings["choose_language"], font=("Arial", 12))
-        lbl.pack(pady=20)
-        rb_en = tk.Radiobutton(self, text=controller.strings["language_english"], variable=self.lang_var, value="en", font=("Arial", 10))
-        rb_en.pack(pady=5)
-        rb_zh = tk.Radiobutton(self, text=controller.strings["language_chinese"], variable=self.lang_var, value="zh", font=("Arial", 10))
-        rb_zh.pack(pady=5)
-        btn = tk.Button(self, text=controller.strings["next"], width=12, command=self.select_language)
-        btn.pack(pady=20)
-    def select_language(self):
-        self.controller.language = self.lang_var.get()
-        self.controller.strings = LANGUAGE_STRINGS[self.lang_var.get()]
-        self.controller.show_frame("WelcomeFrame")
+class LicensePage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        self.text = QtWidgets.QTextEdit()
+        self.text.setReadOnly(True)
+        layout.addWidget(self.text)
+        self.chk = QtWidgets.QCheckBox()
+        layout.addWidget(self.chk)
+        self.setLayout(layout)
 
-class WelcomeFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 14), wraplength=400)
-        self.lbl.pack(pady=40)
-        self.btn = tk.Button(self, text="", width=12, command=lambda: controller.show_frame("LicenseFrame"))
-        self.btn.pack(pady=20)
-        self.author = tk.Label(self, text=controller.strings["author_info"], font=("Arial", 10), fg="blue", cursor="hand2")
-        self.author.pack(side="bottom", pady=10)
-        self.author.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/Felix3322/PotPlayer_ChatGPT_Translate"))
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["welcome_message"])
-        self.btn.config(text=s["next"])
-        self.author.config(text=s["author_info"])
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["license_title"])
+        self.text.setPlainText(read_license())
+        self.chk.setText(s["license_agree"])
 
-class LicenseFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.title_lbl = tk.Label(self, text=self.controller.strings["license_title"], font=("Arial", 14))
-        self.title_lbl.pack(pady=10)
-        self.text_area = tk.Text(self, height=15, width=60)
-        self.text_area.insert(tk.END, read_license())
-        self.text_area.config(state="disabled")
-        self.text_area.pack(pady=10)
-        frm = tk.Frame(self)
-        frm.pack(pady=10)
-        self.agree_btn = tk.Button(frm, text=self.controller.strings["license_agree"], width=15, command=self.agree)
-        self.agree_btn.pack(side="left", padx=5)
-        self.disagree_btn = tk.Button(frm, text=self.controller.strings["license_disagree"], width=15, command=self.disagree)
-        self.disagree_btn.pack(side="left", padx=5)
-    def agree(self):
-        self.controller.show_frame("DirectoryFrame")
-    def disagree(self):
-        messagebox.showwarning("Warning", self.controller.strings["license_reject"])
-        self.controller.destroy()
+    def isComplete(self):
+        return self.chk.isChecked()
 
-class DirectoryFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        self.dir_var = tk.StringVar()
-        self.entry = tk.Entry(self, textvariable=self.dir_var, width=50, state="readonly")
-        self.entry.pack(pady=10)
-        self.browse_btn = tk.Button(self, text="", width=10, command=self.browse)
-        self.browse_btn.pack(pady=5)
-        self.err_lbl = tk.Label(self, text="", fg="red")
-        self.err_lbl.pack(pady=5)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=20)
-        self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("LicenseFrame"))
-        self.back_btn.pack(side="left", padx=10)
-        self.next_btn = tk.Button(frm, text="", width=10, command=self.next_step)
-        self.next_btn.pack(side="right", padx=10)
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["select_install_dir"])
-        self.browse_btn.config(text=s["browse"])
-        self.back_btn.config(text=s["back"])
-        self.next_btn.config(text=s["next"])
+    def validatePage(self):
+        if not self.chk.isChecked():
+            QtWidgets.QMessageBox.warning(self, "Warning", self.wizard.strings["license_reject"])
+            return False
+        return True
+
+class DirectoryPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        self.lbl = QtWidgets.QLabel()
+        layout.addWidget(self.lbl)
+        h = QtWidgets.QHBoxLayout()
+        self.edit = QtWidgets.QLineEdit()
+        h.addWidget(self.edit)
+        self.browse = QtWidgets.QPushButton()
+        self.browse.clicked.connect(self.on_browse)
+        h.addWidget(self.browse)
+        layout.addLayout(h)
+        self.setLayout(layout)
+
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["select_install_dir"])
+        self.lbl.setText("")
+        self.browse.setText(s["browse"])
         detected = auto_detect_directory()
         if detected:
-            if messagebox.askyesno("Confirm", s["confirm_path"].format(detected)):
-                self.dir_var.set(detected)
-                self.controller.install_dir = detected
-                self.controller.show_frame("VersionFrame")
-            else:
-                self.dir_var.set("")
-        else:
-            self.dir_var.set("")
-    def browse(self):
-        d = filedialog.askdirectory()
+            if QtWidgets.QMessageBox.question(self, "Confirm", s["confirm_path"].format(detected), QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
+                self.edit.setText(detected)
+        self.edit.textChanged.emit(self.edit.text())
+
+    def on_browse(self):
+        d = QtWidgets.QFileDialog.getExistingDirectory(self, self.wizard.strings["select_directory"])
         if d:
-            self.dir_var.set(d)
-            self.err_lbl.config(text="")
-    def next_step(self):
-        if self.dir_var.get():
-            self.controller.install_dir = self.dir_var.get()
-            self.controller.show_frame("VersionFrame")
-        else:
-            self.err_lbl.config(text=self.controller.strings["select_directory"])
+            self.edit.setText(d)
 
-class VersionFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        self.version_var = tk.StringVar(value="with_context")
-        self.rb1 = tk.Radiobutton(self, text="", variable=self.version_var, value="with_context", font=("Arial", 10))
-        self.rb1.pack(pady=5)
-        self.desc1 = tk.Label(self, text="", font=("Arial", 9), wraplength=450, justify="left")
-        self.desc1.pack(pady=2)
-        self.rb2 = tk.Radiobutton(self, text="", variable=self.version_var, value="without_context", font=("Arial", 10))
-        self.rb2.pack(pady=5)
-        self.desc2 = tk.Label(self, text="", font=("Arial", 9), wraplength=450, justify="left")
-        self.desc2.pack(pady=2)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=20)
-        self.back_btn = tk.Button(frm, text="", width=10, command=lambda: controller.show_frame("DirectoryFrame"))
-        self.back_btn.pack(side="left", padx=10)
-        self.next_btn = tk.Button(frm, text="", width=10, command=self.next_step)
-        self.next_btn.pack(side="right", padx=10)
+    def validatePage(self):
+        if not self.edit.text():
+            QtWidgets.QMessageBox.warning(self, "Error", self.wizard.strings["select_directory"])
+            return False
+        self.wizard.install_dir = self.edit.text()
+        return True
 
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["choose_version"])
-        self.rb1.config(text=s["with_context"])
-        self.desc1.config(text=s["with_context_description"])
-        self.rb2.config(text=s["without_context"])
-        self.desc2.config(text=s["without_context_description"])
-        self.back_btn.config(text=s["back"])
-        self.next_btn.config(text=s["next"])
+class VersionPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        self.rb1 = QtWidgets.QRadioButton()
+        self.rb2 = QtWidgets.QRadioButton()
+        self.desc1 = QtWidgets.QLabel()
+        self.desc1.setWordWrap(True)
+        self.desc2 = QtWidgets.QLabel()
+        self.desc2.setWordWrap(True)
+        self.rb1.setChecked(True)
+        layout.addWidget(self.rb1)
+        layout.addWidget(self.desc1)
+        layout.addWidget(self.rb2)
+        layout.addWidget(self.desc2)
+        self.setLayout(layout)
 
-    def next_step(self):
-        self.controller.version = self.version_var.get()
-        self.controller.show_frame("ConfigFrame")
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["choose_version"])
+        self.rb1.setText(s["with_context"])
+        self.rb2.setText(s["without_context"])
+        self.desc1.setText(s["with_context_description"])
+        self.desc2.setText(s["without_context_description"])
 
-class ConfigFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        frm = tk.Frame(self)
-        frm.pack(pady=5)
-        self.lbl_model = tk.Label(frm, text="")
-        self.lbl_model.grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        self.model_entry = tk.Entry(frm, width=40)
-        self.model_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.lbl_api = tk.Label(frm, text="")
-        self.lbl_api.grid(row=1, column=0, sticky="e", padx=5, pady=5)
-        self.api_entry = tk.Entry(frm, width=40)
-        self.api_entry.grid(row=1, column=1, padx=5, pady=5)
-        self.lbl_key = tk.Label(frm, text="")
-        self.lbl_key.grid(row=2, column=0, sticky="e", padx=5, pady=5)
-        self.key_entry = tk.Entry(frm, width=40, show="*")
-        self.key_entry.grid(row=2, column=1, padx=5, pady=5)
-        self.status = tk.Label(self, text="", fg="red", wraplength=400)
-        self.status.pack(pady=5)
-        btnf = tk.Frame(self)
-        btnf.pack(side="bottom", pady=20)
-        self.back_btn = tk.Button(btnf, text="", width=10, command=lambda: controller.show_frame("VersionFrame"))
-        self.verify_btn = tk.Button(btnf, text="", width=10, command=self.verify)
-        self.next_btn = tk.Button(btnf, text="", width=10, command=self.next_step)
-        self.back_btn.pack(side="left", padx=5)
-        self.verify_btn.pack(side="left", padx=5)
-        self.next_btn.pack(side="right", padx=5)
+    def validatePage(self):
+        self.wizard.version = 'without_context' if self.rb2.isChecked() else 'with_context'
+        return True
 
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["config_title"])
-        self.lbl_model.config(text=s["config_model"])
-        self.lbl_api.config(text=s["config_api"])
-        self.lbl_key.config(text=s["config_key"])
-        self.back_btn.config(text=s["back"])
-        self.verify_btn.config(text=s["verify"])
-        self.next_btn.config(text=s["next"])
-        if not self.model_entry.get():
-            self.model_entry.insert(0, "gpt-4o")
-        if not self.api_entry.get():
-            self.api_entry.insert(0, "https://api.openai.com/v1/chat/completions")
+class ConfigPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        form = QtWidgets.QFormLayout()
+        self.model_edit = QtWidgets.QLineEdit()
+        self.api_edit = QtWidgets.QLineEdit()
+        self.key_edit = QtWidgets.QLineEdit()
+        self.key_edit.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
+        form.addRow("", self.model_edit)
+        form.addRow("", self.api_edit)
+        form.addRow("", self.key_edit)
+        layout.addLayout(form)
+        self.status = QtWidgets.QLabel()
+        layout.addWidget(self.status)
+        self.verify_btn = QtWidgets.QPushButton()
+        self.verify_btn.clicked.connect(self.verify)
+        layout_h = QtWidgets.QHBoxLayout()
+        layout_h.addWidget(self.verify_btn)
+        self.skip_btn = QtWidgets.QPushButton()
+        self.skip_btn.clicked.connect(self.on_skip)
+        layout_h.addWidget(self.skip_btn)
+        layout.addLayout(layout_h)
+        self.skip = False
+        self.setLayout(layout)
+
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["config_title"])
+        labels = [s["config_model"], s["config_api"], s["config_key"]]
+        form = self.layout().itemAt(0)
+        form.setWidget(0, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(labels[0]))
+        form.setWidget(1, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(labels[1]))
+        form.setWidget(2, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(labels[2]))
+        self.verify_btn.setText(s["verify"])
+        self.skip_btn.setText(s["skip"])
+        self.skip = False
+        if not self.model_edit.text():
+            self.model_edit.setText("gpt-4o")
+        if not self.api_edit.text():
+            self.api_edit.setText("https://api.openai.com/v1/chat/completions")
 
     def verify(self):
-        s = self.controller.strings
-        self.status.config(text=s["verifying"], fg="black")
-        self.update()
+        s = self.wizard.strings
+        self.status.setText(s["verifying"])
+        QtWidgets.QApplication.processEvents()
         ok, msg = verify_api_settings(
-            self.model_entry.get().strip(),
-            self.api_entry.get().strip(),
-            self.key_entry.get().strip(),
+            self.model_edit.text().strip(),
+            self.api_edit.text().strip(),
+            self.key_edit.text().strip(),
         )
         if ok:
-            self.status.config(text=msg or s["verify_success"], fg="green")
+            self.status.setText(msg or s["verify_success"])
             return True
         else:
-            self.status.config(text=s["verify_fail"].format(msg), fg="red")
+            self.status.setText(s["verify_fail"].format(msg))
             return False
 
-    def next_step(self):
-        if self.verify():
-            self.controller.show_frame("ProgressFrame")
+    def on_skip(self):
+        self.skip = True
+        self.wizard().next()
 
-class ProgressFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 12))
-        self.lbl.pack(pady=10)
-        self.txt = tk.Text(self, height=10, width=60, state="disabled")
-        self.txt.pack(pady=5)
-        frm = tk.Frame(self)
-        frm.pack(side="bottom", pady=10)
-        self.cancel_btn = tk.Button(frm, text="", width=10, command=self.controller.destroy)
-        self.cancel_btn.pack()
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["install_progress"])
-        self.cancel_btn.config(text=s["cancel"])
-        self.txt.config(state="normal")
-        self.txt.delete(1.0, tk.END)
-        self.txt.config(state="disabled")
-        self.controller.update_progress("Starting installation...\n开始安装...")
-        self.controller.start_installation()
+    def validatePage(self):
+        if self.skip:
+            return True
+        return self.verify()
+
+class ProgressPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        layout = QtWidgets.QVBoxLayout()
+        self.text = QtWidgets.QTextEdit()
+        self.text.setReadOnly(True)
+        layout.addWidget(self.text)
+        self.setLayout(layout)
+        self.thread = None
+
+    def initializePage(self):
+        self.text.clear()
+        self.thread = InstallThread(self.wizard.install_dir, self.wizard.version, os.path.dirname(os.path.abspath(__file__)), self.wizard.language)
+        self.thread.progress.connect(self.append_text)
+        self.thread.start()
+
     def append_text(self, msg):
-        self.txt.config(state="normal")
-        self.txt.insert(tk.END, msg+"\n")
-        self.txt.see(tk.END)
-        self.txt.config(state="disabled")
+        self.text.append(msg)
+        if msg == "DONE":
+            self.wizard.next()
 
-class FinishFrame(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.lbl = tk.Label(self, text="", font=("Arial", 14))
-        self.lbl.pack(pady=40)
-        self.finish_btn = tk.Button(self, text="", width=12, command=controller.destroy)
-        self.finish_btn.pack(pady=20)
-    def on_show(self):
-        s = self.controller.strings
-        self.lbl.config(text=s["installation_complete"])
-        self.finish_btn.config(text=s["finish"])
+class FinishPage(QtWidgets.QWizardPage):
+    def initializePage(self):
+        self.setTitle(self.wizard.strings["installation_complete"])
+
+# ========= Wizard =========
+class InstallerWizard(QtWidgets.QWizard):
+    def __init__(self):
+        super().__init__()
+        self.language = 'en'
+        self.strings = LANGUAGE_STRINGS[self.language]
+        self.install_dir = ''
+        self.version = ''
+        self.setWindowTitle("PotPlayer ChatGPT Translate Installer")
+        self.setWizardStyle(QtWidgets.QWizard.WizardStyle.ModernStyle)
+        self.addPage(LanguagePage(self))
+        self.addPage(WelcomePage(self))
+        self.addPage(LicensePage(self))
+        self.addPage(DirectoryPage(self))
+        self.addPage(VersionPage(self))
+        self.addPage(ConfigPage(self))
+        self.addPage(ProgressPage(self))
+        self.addPage(FinishPage(self))
+
+# ========= main =========
 
 def main():
+    app = QtWidgets.QApplication(sys.argv)
     if not is_admin():
+        QtWidgets.QMessageBox.warning(None, "Admin Required", merge_bilingual("admin_required"))
         restart_as_admin()
+        return
+    wizard = InstallerWizard()
+    wizard.show()
+    sys.exit(app.exec())
 
-    app = InstallerApp()
-    app.mainloop()
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
