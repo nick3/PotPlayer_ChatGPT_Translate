@@ -10,6 +10,7 @@ import win32com.client
 import webbrowser
 import winreg
 import hashlib
+import re
 
 from PyQt6 import QtWidgets, QtCore
 
@@ -288,6 +289,18 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key_name):
         f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key_name}" /f\n')
         f.write("\nexit\n")
 
+def apply_preconfig(file_path, api_key, model, api_base):
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = f.read()
+        data = re.sub(r'pre_api_key\s*=\s*".*?"', f'pre_api_key = "{api_key}"', data)
+        data = re.sub(r'pre_selected_model\s*=\s*".*?"', f'pre_selected_model = "{model}"', data)
+        data = re.sub(r'pre_apiUrl\s*=\s*".*?"', f'pre_apiUrl = "{api_base}"', data)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(data)
+    except Exception:
+        pass
+
 # ========= Dialog Helpers =========
 
 def custom_file_exists_dialog(parent, title, msg, btn1, btn2, btn3):
@@ -308,12 +321,15 @@ def custom_file_exists_dialog(parent, title, msg, btn1, btn2, btn3):
 class InstallThread(QtCore.QThread):
     progress = QtCore.pyqtSignal(str)
 
-    def __init__(self, install_dir, version, script_dir, language):
+    def __init__(self, install_dir, version, script_dir, language, api_key, model, api_base):
         super().__init__()
         self.install_dir = install_dir
         self.version = version
         self.script_dir = script_dir
         self.language = language
+        self.api_key = api_key
+        self.model = model
+        self.api_base = api_base
         self.files_installed = []
 
     def run(self):
@@ -340,6 +356,7 @@ class InstallThread(QtCore.QThread):
                         return
                     elif choice == "overwrite":
                         shutil.copy(src_path, dest_path)
+                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
                         self.progress.emit(f"Installed {dest_name} (Overwritten).")
                         self.files_installed.append(dest_path)
                         if reginfo:
@@ -366,6 +383,7 @@ class InstallThread(QtCore.QThread):
                                 QtWidgets.QMessageBox.warning(None, "Error", s["file_exists_3choice"].format(new_name))
                                 continue
                             shutil.copy(src_path, new_dest_path)
+                            apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base)
                             self.progress.emit(f"Installed {new_name}.")
                             self.files_installed.append(new_dest_path)
                             if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_new"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
@@ -373,6 +391,7 @@ class InstallThread(QtCore.QThread):
                             break
                 else:
                     shutil.copy(src_path, dest_path)
+                    apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
                     self.progress.emit(f"Installed {dest_name}.")
                     self.files_installed.append(dest_path)
                     if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_new"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
@@ -578,9 +597,9 @@ class ConfigPage(QtWidgets.QWizardPage):
         self.skip_btn.setText(s["skip"])
         self.skip = False
         if not self.model_edit.text():
-            self.model_edit.setText("gpt-4o")
+            self.model_edit.setText(self.wizard.model)
         if not self.api_edit.text():
-            self.api_edit.setText("https://api.openai.com/v1/chat/completions")
+            self.api_edit.setText(self.wizard.api_base)
 
     def verify(self):
         s = self.wizard.strings
@@ -603,6 +622,9 @@ class ConfigPage(QtWidgets.QWizardPage):
         self.wizard().next()
 
     def validatePage(self):
+        self.wizard.model = self.model_edit.text().strip() or self.wizard.model
+        self.wizard.api_base = self.api_edit.text().strip() or self.wizard.api_base
+        self.wizard.api_key = self.key_edit.text().strip()
         if self.skip:
             return True
         return self.verify()
@@ -620,7 +642,15 @@ class ProgressPage(QtWidgets.QWizardPage):
 
     def initializePage(self):
         self.text.clear()
-        self.thread = InstallThread(self.wizard.install_dir, self.wizard.version, os.path.dirname(os.path.abspath(__file__)), self.wizard.language)
+        self.thread = InstallThread(
+            self.wizard.install_dir,
+            self.wizard.version,
+            os.path.dirname(os.path.abspath(__file__)),
+            self.wizard.language,
+            self.wizard.api_key,
+            self.wizard.model,
+            self.wizard.api_base,
+        )
         self.thread.progress.connect(self.append_text)
         self.thread.start()
 
@@ -641,6 +671,9 @@ class InstallerWizard(QtWidgets.QWizard):
         self.strings = LANGUAGE_STRINGS[self.language]
         self.install_dir = ''
         self.version = ''
+        self.api_key = ''
+        self.model = 'gpt-4o'
+        self.api_base = 'https://api.openai.com/v1/chat/completions'
         self.setWindowTitle("PotPlayer ChatGPT Translate Installer")
         self.setWizardStyle(QtWidgets.QWizard.WizardStyle.ModernStyle)
         self.addPage(LanguagePage(self))

@@ -126,7 +126,8 @@ Click below to watch the tutorial on Bilibili:
 2. **Run the Installer:**
    - Double-click `installer.exe` to start the installation.
    - The PyQt6 wizard provides a modern, multi-language interface and automatically detects your PotPlayer path.
-   - You can verify your API model, URL and key or simply skip this step; the wizard will try to auto-correct common mistakes.
+   - You can verify or preconfigure your API model, URL and key, or simply skip this step; the wizard will try to auto-correct common mistakes.
+   - The optional `installer_qt.py` script from v1.5.2 can skip configuration when an existing installation is detected.
 
 ### Manual Installation 🔧
 
@@ -222,6 +223,7 @@ Moonshot v1: moonshot-v1-128k|https://api.moonshot.cn/v1/chat/completions
 Yi 34B Chat: yi-34b-chat|https://api.lingyi.ai/v1/chat/completions
 Local Deployment (no API key): model-name|http://127.0.0.1:PORT/v1/chat/completions|nullkey
 ```
+Model names in the installer are shown in your chosen language whenever possible.
 
 You can expand or replace these with any OpenAI-compatible model that supports the chat/completions endpoint.
 
