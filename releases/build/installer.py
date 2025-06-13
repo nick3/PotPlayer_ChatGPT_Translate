@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 """PyQt6 based installer for PotPlayer ChatGPT Translate"""
-import os
-import sys
 import ctypes
-import threading
+import hashlib
+import os
+import re
 import shutil
+import sys
+import winreg
+
 import requests
 import win32com.client
-import webbrowser
-import winreg
-import hashlib
-import re
-
 from PyQt6 import QtWidgets, QtCore
 
 PLUGIN_VERSION = "1.5.2"
