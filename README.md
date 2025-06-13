@@ -125,8 +125,8 @@ Click below to watch the tutorial on Bilibili:
    *(The installer is open source, so you can review the source code)*
 2. **Run the Installer:**
    - Double-click `installer.exe` to start the installation.
-   - The installer automatically detects your PotPlayer installation path and completes the setup.
-   - You will be asked to verify your API model, URL and key. The installer will try to auto-correct common mistakes.
+   - The PyQt6 wizard provides a modern, multi-language interface and automatically detects your PotPlayer path.
+   - You can verify your API model, URL and key or simply skip this step; the wizard will try to auto-correct common mistakes.
 
 ### Manual Installation 🔧
 
