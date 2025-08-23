@@ -414,12 +414,40 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         subtitleHistory.removeAt(0);
     }
 
-    string systemMsg = "You are a professional subtitle translate tool. I may provide you with context for better translations, but DO NOT output any context.";
-    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. \n\nTranslate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\n" + Text;
+    string systemMsg =
+        "You are a subtitle translation tool. "
+        "Your ONLY task is to translate the subtitle text explicitly given under 'Subtitle to translate:'. "
+        "NEVER translate or output the reference CONTEXT. "
+        "NEVER output the original text, quotes, explanations, or anything other than the translation. "
+        "If the input is already in the target language, output it directly, unchanged.";
+
+    string userMsg =
+        "Translate ONLY the text under the section 'Subtitle to translate:'.\n"
+        "Do NOT include the section called '[CONTEXT]'.\n"
+        "The CONTEXT is for your understanding ONLY and must NEVER appear in your output.\n\n"
+
+        "Source language: " + (SrcLang == "" ? "Auto Detect" : SrcLang) + "\n"
+        "Target language: " + DstLang + "\n\n"
+
+        // 正向约束
+        "Rules:\n"
+        "1. Output ONLY the translation of the subtitle.\n"
+        "2. Do NOT output the original subtitle.\n"
+        "3. Do NOT output the CONTEXT.\n"
+        "4. Do NOT output explanations, comments, or formatting.\n"
+
+        // 反向约束（黑名单）
+        "Forbidden outputs:\n"
+        "- Any text from CONTEXT.\n"
+        "- Any mention of 'context', 'subtitle', 'translation'.\n"
+        "- Quotes, brackets, or tags.\n"
+
+        "\nSubtitle to translate:\n" + Text;
 
     if (context != "") {
-        userMsg += "\n[Subtitle context (DO NOT OUTPUT):\n" + context + "]";
+        userMsg += "\n\n[CONTEXT] (DO NOT TRANSLATE OR OUTPUT):\n" + context;
     }
+
 
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
