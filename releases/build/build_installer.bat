@@ -1,1 +1,16 @@
-pyinstaller -F -w --hidden-import six --clean --add-data "..\..\SubtitleTranslate - ChatGPT.as;." --add-data "..\..\SubtitleTranslate - ChatGPT.ico;." --add-data "..\..\SubtitleTranslate - ChatGPT - Without Context.as;." --add-data "..\..\SubtitleTranslate - ChatGPT - Without Context.ico;." --add-data "..\..\LICENSE;." --distpath "..\latest" installer.py && rmdir /s /q build && del installer.spec
+cd C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\.venv\Scripts
+python -m PyInstaller -F -w --clean --uac-admin ^
+  --collect-all openai ^
+  --collect-submodules httpx ^
+  --collect-submodules anyio ^
+  --distpath "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\releases\latest" ^
+  --name installer ^
+  --icon "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\icon.ico" ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT.as;." ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT.ico;." ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT - Without Context.as;." ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT - Without Context.ico;." ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\LICENSE;." ^
+  "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\releases\build\installer.py"
+rmdir /s /q build
+del /f /q installer.spec
