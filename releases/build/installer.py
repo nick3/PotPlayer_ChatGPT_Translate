@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""PyQt6 based installer for PotPlayer ChatGPT Translate"""
+"""PyQt6 based installer for PotPlayer ChatGPT Translate — FINAL (OpenAI SDK, Dark Theme)"""
+
 import ctypes
 import hashlib
 import os
@@ -7,114 +8,221 @@ import re
 import shutil
 import sys
 import winreg
+import webbrowser
 
-import requests
+# OPENAI SDK 替换 requests
+from openai import OpenAI
 import win32com.client
-from PyQt6 import QtWidgets, QtCore
+from PyQt6 import QtWidgets, QtCore, QtGui
 
-PLUGIN_VERSION = "1.5.2"
+PLUGIN_VERSION = "1.5.4"
 
+# ========= Per-model provider dict (model → api_base ROOT & purchase link) =========
+# 重要：api_base 统一为“根路径”（例如 https://api.openai.com/v1），不要带 /chat/completions
+API_PROVIDERS = {
+    # Official OpenAI presets
+    "gpt-4o": {
+        "model": "gpt-4o",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    "gpt-4.1": {
+        "model": "gpt-4.1",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    "gpt-4.1-mini": {
+        "model": "gpt-4.1-mini",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    # 示例第三方：需 OpenAI-兼容接口（路径中一般包含 /v1）
+    # 如你有网关给的是完整 endpoint（.../chat/completions），也能用，代码会自动规范化为根路径
+    "glm-4": {
+        "model": "glm-4",
+        "api_base": "https://open.bigmodel.cn/api/paas/v4",  # 假设兼容 /chat/completions
+        "purchase_page": "https://open.bigmodel.cn/billing"
+    },
+    # Sentinel for custom entry (user-defined)
+    "__CUSTOM__": {
+        "model": "",
+        "api_base": "",
+        "purchase_page": ""
+    }
+}
+
+# ========= i18n Strings =========
 LANGUAGE_STRINGS = {
     "en": {
+        "app_title": "PotPlayer ChatGPT Translate Installer",
         "admin_required": "This installer needs to be run with administrator privileges.\nPlease restart as administrator.",
-        "select_directory": "Please select the PotPlayer Translate directory.",
-        "installation_complete": "Installation completed successfully!",
-        "choose_version": "Choose the version to install:",
-        "without_context": "Installer without Context Handling",
-        "with_context": "Installer with Context Handling",
-        "installation_failed": "Installation failed: {}",
-        "welcome_message": "Welcome to the PotPlayer ChatGPT Translate Installer (v1.5.2)\n\nPlease follow the steps to install.",
-        "new_installer_notice": "This new installer is ready. Press Next to continue.",
-        "select_install_dir": "Select the PotPlayer Translate directory:",
-        "browse": "Browse",
         "next": "Next",
         "back": "Back",
-        "choose_language": "Choose your language:",
+        "browse": "Browse",
+        "cancel": "Cancel",
+        "finish": "Finish",
+        "yes": "Yes",
+        "no": "No",
+
+        "choose_language": "Choose your language",
         "language_english": "English",
         "language_chinese": "中文",
-        "with_context_description": "Advanced context-aware processing (more accurate but higher cost).",
-        "without_context_description": "Lightweight version without context (lower cost).",
-        "confirm_path": "Detected PotPlayer path:\n{}\nIs this correct?",
+
+        "welcome_title": "Welcome",
+        "welcome_message": f"Welcome to the PotPlayer ChatGPT Translate Installer (v{PLUGIN_VERSION}).\n\n"
+                           "This wizard will:\n"
+                           "1) Detect PotPlayer Translate folder automatically (if possible).\n"
+                           "2) Let you choose the plugin variant.\n"
+                           "3) Configure API model & endpoint.\n"
+                           "4) Copy .as and .ico files and optionally register an uninstaller.\n",
+        "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
+
         "license_title": "License Agreement",
+        "license_intro": "Please review and accept the license to continue.",
         "license_agree": "I Agree",
         "license_disagree": "I Disagree",
         "license_reject": "You must agree to the license to continue.",
-        "install_progress": "Installation Progress:",
-        "cancel": "Cancel",
-        "finish": "Finish",
-        "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
-        "file_exists_3choice": "File {} already exists.\n\nPlease choose:\n- Overwrite & Upgrade\n- Rename\n- Cancel",
-        "installation_cancelled": "Installation cancelled by user.",
-        "custom_name_prompt": "Please enter the new file name:",
-        "custom_name_empty": "Custom name cannot be empty. Installation cancelled.",
-        "ask_reg_write": "Detected file exists but not registered for uninstall. Write uninstall info to registry for easier uninstallation?",
-        "ask_reg_upgrade": "Detected registry info for this plugin, update registry entry for new version?",
-        "ask_reg_new": "No registry uninstall info found. Write uninstall info to registry for easier uninstallation?",
-        "config_title": "Verify API Settings",
+
+        "select_install_dir_title": "Select Install Directory",
+        "select_install_dir_explain": "Select PotPlayer's Translate directory.\n\n"
+                                      "Heads-up: The installer auto-detects the path. If you know what this means, "
+                                      "double-check the detected path below; otherwise, Browse to locate the correct folder.\n"
+                                      "Typical path: .../PotPlayer/Extension/Subtitle/Translate",
+        "select_directory": "Please select the PotPlayer Translate directory.",
+        "confirm_path": "Detected PotPlayer path:\n{}\nUse this path?",
+        "not_detected": "No PotPlayer Translate path was detected. Please choose the folder manually.",
+
+        "choose_version_title": "Choose Plugin Variant",
+        "choose_version": "Choose the version to install:",
+        "with_context": "Installer with Context Handling (recommended)",
+        "without_context": "Installer without Context Handling",
+        "with_context_description": "Advanced context-aware processing for better accuracy (higher API usage).",
+        "without_context_description": "Lightweight mode without context for lower API usage (faster/cheaper).",
+        "version_explain": "Explanation:\n- With Context: sends surrounding subtitle context to the model to improve translation.\n"
+                           "- Without Context: translates lines independently; cheaper and faster but less coherent across lines.",
+
+        "config_title": "Verify / Configure API Settings",
+        "config_intro": "Provide API settings. Each preset model carries its own default API URL and billing page.\n"
+                        "You can also switch to 'Custom' and fill in your own endpoint.",
         "config_model": "Model:",
-        "config_api": "API URL:",
+        "config_api": "API Base URL:",
         "config_key": "API Key:",
+        "config_model_preset": "Model Preset:",
+        "purchase_button": "Open Billing / Recharge Page",
         "verify": "Verify",
         "skip": "Skip",
         "verifying": "Verifying...",
         "verify_success": "Verification passed.",
-        "verify_fail": "Verification failed:\n{}"
+        "verify_fail": "Verification failed:\n{}",
+        "purchase_hint": "This button opens the billing/recharge page for the selected model/provider.",
+
+        "install_progress_title": "Installation Progress",
+        "install_progress": "Installing files and applying configuration...",
+
+        "file_exists_3choice": "File {} already exists.\n\nPlease choose:\n- Overwrite & Upgrade\n- Rename\n- Cancel",
+        "overwrite": "Overwrite",
+        "rename": "Rename",
+
+        "ask_reg_write": "Detected file exists but no uninstall info in registry.\nWrite uninstall info for easier removal?",
+        "ask_reg_upgrade": "Existing uninstall registry info detected.\nUpdate registry to the new version?",
+        "ask_reg_new": "No uninstall registry info was found.\nWrite uninstall info for easier removal?",
+
+        "installation_complete": "Installation completed successfully!",
+        "installation_failed": "Installation failed: {}",
+        "installation_cancelled": "Installation cancelled by user.",
+
+        "finish_title": "Done",
     },
     "zh": {
+        "app_title": "PotPlayer ChatGPT 翻译安装程序",
         "admin_required": "此安装器需要以管理员权限运行，请以管理员身份重启。",
-        "select_directory": "请选择PotPlayer的Translate目录。",
-        "installation_complete": "安装成功！",
-        "choose_version": "请选择安装的版本：",
-        "without_context": "不带上下文处理的安装包",
-        "with_context": "带上下文处理的安装包",
-        "installation_failed": "安装失败：{}",
-        "welcome_message": "欢迎使用PotPlayer ChatGPT 翻译安装程序 (v1.5.2)\n\n请按照步骤完成安装。",
-        "new_installer_notice": "新的安装器已就绪，按“下一步”继续。",
-        "select_install_dir": "请选择PotPlayer的Translate目录：",
-        "browse": "浏览",
         "next": "下一步",
         "back": "上一步",
-        "choose_language": "选择语言：",
+        "browse": "浏览",
+        "cancel": "取消",
+        "finish": "完成",
+        "yes": "是",
+        "no": "否",
+
+        "choose_language": "选择语言",
         "language_english": "English",
         "language_chinese": "中文",
-        "with_context_description": "高级上下文处理（翻译更精准，但成本较高）。",
-        "without_context_description": "轻量版（不带上下文处理，成本较低）。",
-        "confirm_path": "检测到的PotPlayer路径：\n{}\n是否正确？",
+
+        "welcome_title": "欢迎",
+        "welcome_message": f"欢迎使用 PotPlayer ChatGPT 翻译安装程序 (v{PLUGIN_VERSION})。\n\n"
+                           "本向导将：\n"
+                           "1) 自动识别 PotPlayer 的 Translate 目录（若可能）。\n"
+                           "2) 让你选择插件版本（带上下文 / 不带上下文）。\n"
+                           "3) 配置 API 模型与接口地址。\n"
+                           "4) 复制 .as 和 .ico 文件，并可写入注册表以便卸载。\n",
+        "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
+
         "license_title": "许可协议",
+        "license_intro": "请阅读并同意许可协议后继续。",
         "license_agree": "我同意",
         "license_disagree": "我不同意",
         "license_reject": "必须同意许可协议才能继续。",
-        "install_progress": "安装进度：",
-        "cancel": "取消",
-        "finish": "完成",
-        "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
-        "file_exists_3choice": "文件 {} 已存在。\n\n请选择：\n- 覆盖升级\n- 重命名\n- 取消",
-        "installation_cancelled": "用户取消了安装。",
-        "custom_name_prompt": "请输入新的文件名:",
-        "custom_name_empty": "文件名不能为空，安装已取消",
-        "ask_reg_write": "检测到文件已存在但未注册卸载信息，是否写入注册表以便卸载？",
-        "ask_reg_upgrade": "检测到已有卸载注册表项，是否更新为新版本？",
-        "ask_reg_new": "未发现卸载注册表项，是否写入注册表以便卸载？",
-        "config_title": "验证 API 设置",
-        "config_model": "模型名称:",
-        "config_api": "API 地址:",
-        "config_key": "API Key:",
+
+        "select_install_dir_title": "选择安装目录",
+        "select_install_dir_explain": "请选择 PotPlayer 的 Translate 目录。\n\n"
+                                      "提示：安装器会自动识别路径。如果你知道这是什么意思，可以检查下面的自动结果；"
+                                      "若不确定，请点击“浏览”手动定位正确目录。\n"
+                                      "典型路径：.../PotPlayer/Extension/Subtitle/Translate",
+        "select_directory": "请选择PotPlayer的Translate目录。",
+        "confirm_path": "检测到的 PotPlayer 路径：\n{}\n是否使用该路径？",
+        "not_detected": "未检测到 PotPlayer Translate 路径，请手动选择。",
+
+        "choose_version_title": "选择插件版本",
+        "choose_version": "请选择要安装的版本：",
+        "with_context": "带上下文处理（推荐）",
+        "without_context": "不带上下文处理",
+        "with_context_description": "高级上下文处理，翻译更准确（API 消耗更高）。",
+        "without_context_description": "轻量模式，不带上下文（更快/更省），但跨行连贯性较弱。",
+        "version_explain": "解释：\n- 带上下文：会向模型发送相邻字幕的上下文，提升准确度与一致性；\n"
+                           "- 不带上下文：逐行翻译，成本更低但跨行一致性较弱。",
+
+        "config_title": "验证 / 配置 API 设置",
+        "config_intro": "在此提供 API 设置。每个预设模型包含默认的 API 地址与充值页面。\n"
+                        "你也可以选择“自定义”并填写自己的地址。",
+        "config_model": "模型：",
+        "config_api": "API 根地址：",
+        "config_key": "API Key：",
+        "config_model_preset": "模型预设：",
+        "purchase_button": "打开充值/购买页面",
         "verify": "验证",
         "skip": "跳过",
         "verifying": "正在验证...",
         "verify_success": "验证成功。",
-        "verify_fail": "验证失败:\n{}"
+        "verify_fail": "验证失败：\n{}",
+        "purchase_hint": "此按钮会打开所选模型/供应商的充值或购买页面。",
+
+        "install_progress_title": "安装进度",
+        "install_progress": "正在复制文件并应用配置...",
+
+        "file_exists_3choice": "文件 {} 已存在。\n\n请选择：\n- 覆盖升级\n- 重命名\n- 取消",
+        "overwrite": "覆盖",
+        "rename": "重命名",
+
+        "ask_reg_write": "检测到文件已存在但未写入卸载信息。\n是否写入注册表以便卸载？",
+        "ask_reg_upgrade": "检测到已有卸载注册表信息。\n是否更新为新版本？",
+        "ask_reg_new": "未发现卸载注册表信息。\n是否写入注册表以便卸载？",
+
+        "installation_complete": "安装成功！",
+        "installation_failed": "安装失败：{}",
+        "installation_cancelled": "用户取消了安装。",
+
+        "finish_title": "完成",
     }
 }
 
 OFFLINE_FILES = {
     "with_context": [
         ("SubtitleTranslate - ChatGPT.as", "SubtitleTranslate - ChatGPT.as"),
-        ("SubtitleTranslate - ChatGPT.ico", "SubtitleTranslate - ChatGPT.ico")
+        ("SubtitleTranslate - ChatGPT.ico", "SubtitleTranslate - ChatGPT.ico"),
     ],
     "without_context": [
         ("SubtitleTranslate - ChatGPT - Without Context.as", "SubtitleTranslate - ChatGPT - Without Context.as"),
-        ("SubtitleTranslate - ChatGPT - Without Context.ico", "SubtitleTranslate - ChatGPT - Without Context.ico")
+        ("SubtitleTranslate - ChatGPT - Without Context.ico", "SubtitleTranslate - ChatGPT - Without Context.ico"),
     ]
 }
 
@@ -123,19 +231,16 @@ OFFLINE_FILES = {
 def merge_bilingual(key):
     return LANGUAGE_STRINGS["en"][key] + "\n\n" + LANGUAGE_STRINGS["zh"][key]
 
-
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except Exception:
         return False
 
-
 def restart_as_admin():
     params = " ".join([f'"{arg}"' for arg in sys.argv])
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
     sys.exit()
-
 
 def get_path_from_shortcut(shortcut_path):
     try:
@@ -145,13 +250,12 @@ def get_path_from_shortcut(shortcut_path):
     except Exception:
         return None
 
-
 def scan_shortcuts():
     search_dirs = [
         os.path.join(os.environ.get("USERPROFILE", ""), "Desktop"),
         os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs"),
-        r"C:\\Users\\Public\\Desktop",
-        r"C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs"
+        r"C:\Users\Public\Desktop",
+        r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
     ]
     for base in search_dirs:
         if os.path.exists(base):
@@ -166,11 +270,12 @@ def scan_shortcuts():
                                 return translate_dir
     return None
 
-
 def get_path_from_installation_dir():
-    base_dirs = [r"C:\\Program Files\\DAUM\\PotPlayer"]
+    base_dirs = [r"C:\Program Files\DAUM\PotPlayer", r"C:\Program Files (x86)\DAUM\PotPlayer"]
     for drive in [f"{chr(x)}:\\" for x in range(65, 91) if os.path.exists(f"{chr(x)}:\\")]:
         base_dirs.append(os.path.join(drive, "DAUM", "PotPlayer"))
+        base_dirs.append(os.path.join(drive, "Program Files", "DAUM", "PotPlayer"))
+        base_dirs.append(os.path.join(drive, "Program Files (x86)", "DAUM", "PotPlayer"))
     for d in base_dirs:
         if os.path.exists(d):
             translate_dir = os.path.join(d, "Extension", "Subtitle", "Translate")
@@ -178,14 +283,13 @@ def get_path_from_installation_dir():
                 return translate_dir
     return None
 
-
 def scan_drives():
     for drive in [f"{chr(x)}:\\" for x in range(65, 91) if os.path.exists(f"{chr(x)}:\\")]:
-        path = os.path.join(drive, "Program Files", "DAUM", "PotPlayer", "Extension", "Subtitle", "Translate")
-        if os.path.exists(path):
-            return path
+        for pf in ("Program Files", "Program Files (x86)"):
+            path = os.path.join(drive, pf, "DAUM", "PotPlayer", "Extension", "Subtitle", "Translate")
+            if os.path.exists(path):
+                return path
     return None
-
 
 def auto_detect_directory():
     detected = scan_shortcuts()
@@ -196,7 +300,6 @@ def auto_detect_directory():
         return detected
     return scan_drives()
 
-
 def read_license():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     license_path = os.path.join(script_dir, "LICENSE")
@@ -205,47 +308,50 @@ def read_license():
             return f.read()
     return "LICENSE file not found."
 
-
 def ensure_dir_exists(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
+# —— OpenAI SDK 验证：把“可能是完整 endpoint”的 api_url 规范化为 base_url 根路径
+def _normalize_base_url_for_openai(api_url: str) -> str:
+    u = (api_url or "").strip().rstrip("/")
+    if not u:
+        return "https://api.openai.com/v1"
+    # 如果用户填了 .../chat/completions 或 /responses，剥掉尾巴变成根
+    for tail in ("/chat/completions", "/responses"):
+        if u.endswith(tail):
+            return u[: -len(tail)]
+    return u
 
 def verify_api_settings(model, api_url, api_key):
-    api_url = api_url.strip().rstrip('/') or "https://api.openai.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    data = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a test assistant."},
-            {"role": "user", "content": "Hello"}
-        ],
-        "max_tokens": 1,
-        "temperature": 0
-    }
+    """
+    使用 OpenAI SDK 做最小化验证。
+    - 支持 base_url 为根或完整 endpoint（自动规范化）。
+    - 仅请求 1 token，失败时返回异常信息。
+    """
+    base_url = _normalize_base_url_for_openai(api_url)
     try:
-        r = requests.post(api_url, json=data, timeout=10, headers=headers)
-        if r.ok and r.json().get("choices"):
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a test assistant."},
+                {"role": "user", "content": "Hello"}
+            ],
+            max_tokens=1,
+            temperature=0
+        )
+        # 成功只需有 choices 即可
+        if getattr(resp, "choices", None):
             return True, ""
-        msg = r.json().get("error", {}).get("message", "Invalid response")
+        return False, "Empty response"
     except Exception as e:
-        msg = str(e)
-    if "chat/completions" not in api_url:
-        corrected = api_url + "/chat/completions"
-        try:
-            r = requests.post(corrected, json=data, timeout=10, headers=headers)
-            if r.ok and r.json().get("choices"):
-                return True, f"Warning: Your API base was auto-corrected to: {corrected}"
-        except Exception:
-            pass
-    return False, msg
-
+        return False, str(e)
 
 def reg_key_name(install_dir, context_type):
     id_base = os.path.abspath(install_dir).lower() + "|" + context_type
     id_hash = hashlib.md5(id_base.encode("utf-8")).hexdigest()[:8]
     return f"PotPlayer_ChatGPT_Translate_{id_hash}"
-
 
 def find_existing_reg_info(install_dir, context_type):
     regname = reg_key_name(install_dir, context_type)
@@ -260,7 +366,6 @@ def find_existing_reg_info(install_dir, context_type):
     except Exception:
         return None
 
-
 def register_software(display_name, uninstall_path, install_dir, key_name, version, context_type):
     reg_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\\" + key_name
     key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, reg_path)
@@ -273,8 +378,7 @@ def register_software(display_name, uninstall_path, install_dir, key_name, versi
     winreg.SetValueEx(key, "ContextType", 0, winreg.REG_SZ, context_type)
     key.Close()
 
-
-def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key_name):
+def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key):
     with open(uninstall_bat_path, "w", encoding="utf-8") as f:
         f.write("@echo off\n")
         f.write("REM PotPlayer ChatGPT Translate uninstall script\n\n")
@@ -284,7 +388,7 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key_name):
             else:
                 f.write(f'del "{file}" /f /q\n')
         f.write('del "%~f0" /f /q\n')
-        f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key_name}" /f\n')
+        f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key}" /f\n')
         f.write("\nexit\n")
 
 def apply_preconfig(file_path, api_key, model, api_base):
@@ -299,25 +403,71 @@ def apply_preconfig(file_path, api_key, model, api_base):
     except Exception:
         pass
 
-# ========= Dialog Helpers =========
+def set_wizard_button_texts(wizard):
+    s = wizard.strings
+    wizard.setWindowTitle(s["app_title"])
+    wizard.setButtonText(QtWidgets.QWizard.WizardButton.NextButton, s["next"])
+    wizard.setButtonText(QtWidgets.QWizard.WizardButton.BackButton, s["back"])
+    wizard.setButtonText(QtWidgets.QWizard.WizardButton.CancelButton, s["cancel"])
+    wizard.setButtonText(QtWidgets.QWizard.WizardButton.FinishButton, s["finish"])
 
-def custom_file_exists_dialog(parent, title, msg, btn1, btn2, btn3):
-    box = QtWidgets.QMessageBox(parent)
-    box.setWindowTitle(title)
-    box.setText(msg)
-    overwrite = box.addButton(btn1, QtWidgets.QMessageBox.ButtonRole.AcceptRole)
-    rename = box.addButton(btn2, QtWidgets.QMessageBox.ButtonRole.ActionRole)
-    cancel = box.addButton(btn3, QtWidgets.QMessageBox.ButtonRole.RejectRole)
-    box.exec()
-    if box.clickedButton() == overwrite:
-        return 'overwrite'
-    if box.clickedButton() == rename:
-        return 'rename'
-    return None
+# ========= Theme helpers (Force Fusion Dark Palette) =========
 
-# ========= Installation Thread =========
+def apply_fusion_dark_palette(app: QtWidgets.QApplication):
+    app.setStyle("Fusion")
+    p = QtGui.QPalette()
+
+    bg  = QtGui.QColor(30, 30, 30)
+    base= QtGui.QColor(25, 25, 25)
+    text= QtGui.QColor(220, 220, 220)
+    btn = QtGui.QColor(45, 45, 45)
+    link= QtGui.QColor(100, 160, 255)
+    hl  = QtGui.QColor(53, 132, 228)
+
+    p.setColor(QtGui.QPalette.ColorRole.Window, bg)
+    p.setColor(QtGui.QPalette.ColorRole.WindowText, text)
+    p.setColor(QtGui.QPalette.ColorRole.Base, base)
+    p.setColor(QtGui.QPalette.ColorRole.AlternateBase, bg)
+    p.setColor(QtGui.QPalette.ColorRole.ToolTipBase, base)
+    p.setColor(QtGui.QPalette.ColorRole.ToolTipText, text)
+    p.setColor(QtGui.QPalette.ColorRole.Text, text)
+    p.setColor(QtGui.QPalette.ColorRole.Button, btn)
+    p.setColor(QtGui.QPalette.ColorRole.ButtonText, text)
+    p.setColor(QtGui.QPalette.ColorRole.BrightText, QtGui.QColor(255, 0, 0))
+    p.setColor(QtGui.QPalette.ColorRole.Link, link)
+    p.setColor(QtGui.QPalette.ColorRole.Highlight, hl)
+    p.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtGui.QColor(255, 255, 255))
+
+    app.setPalette(p)
+    app.setStyleSheet("""
+        QLabel { color: palette(WindowText); }
+        QLabel a { color: palette(Link); text-decoration: none; }
+        QLabel a:hover { text-decoration: underline; }
+    """)
+
+# ========= Installation Thread  (NO UI inside thread) =========
+
 class InstallThread(QtCore.QThread):
     progress = QtCore.pyqtSignal(str)
+
+    ask_file_exists = QtCore.pyqtSignal(str, str)     # title, message
+    ask_yesno       = QtCore.pyqtSignal(str, str)     # title, message
+    ask_text        = QtCore.pyqtSignal(str, str)     # title, prompt
+
+    @QtCore.pyqtSlot(object)
+    def receive_answer(self, value):
+        self._answer = value
+        if self._loop is not None:
+            self._loop.quit()
+
+    def _ask_main(self, signal, *args):
+        self._answer = None
+        self._loop = QtCore.QEventLoop()
+        signal.emit(*args)
+        self._loop.exec()
+        ans = self._answer
+        self._loop = None
+        return ans
 
     def __init__(self, install_dir, version, script_dir, language, api_key, model, api_base):
         super().__init__()
@@ -329,10 +479,11 @@ class InstallThread(QtCore.QThread):
         self.model = model
         self.api_base = api_base
         self.files_installed = []
+        self._loop = None
+        self._answer = None
 
     def run(self):
-        lang = self.language
-        s = LANGUAGE_STRINGS[lang]
+        s = LANGUAGE_STRINGS[self.language]
         context_type = self.version
         key_name = reg_key_name(self.install_dir, context_type)
         display_name = f"PotPlayer ChatGPT Translate v{PLUGIN_VERSION} [{'With context' if context_type=='with_context' else 'Without context'}]"
@@ -345,54 +496,55 @@ class InstallThread(QtCore.QThread):
                 dest_path = os.path.join(self.install_dir, dest_name)
                 self.progress.emit(f"Copying {src_file} ...")
                 if not os.path.exists(src_path):
-                    self.progress.emit(f"Error: Missing file {src_file}.")
+                    self.progress.emit(s["installation_failed"].format(f"Missing file {src_file}"))
                     return
                 if os.path.exists(dest_path):
-                    choice = custom_file_exists_dialog(None, "File Exists", s["file_exists_3choice"].format(dest_name), "Overwrite", "Rename", s["cancel"])
+                    choice = self._ask_main(self.ask_file_exists, s["app_title"], s["file_exists_3choice"].format(dest_name))
                     if choice is None:
                         self.progress.emit(merge_bilingual("installation_cancelled"))
                         return
                     elif choice == "overwrite":
                         shutil.copy(src_path, dest_path)
-                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
+                        if dest_name.lower().endswith(".as"):
+                            apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
                         self.progress.emit(f"Installed {dest_name} (Overwritten).")
                         self.files_installed.append(dest_path)
                         if reginfo:
-                            box = QtWidgets.QMessageBox
-                            if box.question(None, "Registry", s["ask_reg_upgrade"], box.StandardButton.Yes | box.StandardButton.No) == box.StandardButton.Yes:
+                            if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_upgrade"]):
                                 reg_write = True
                         else:
-                            if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_write"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
+                            if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_write"]):
                                 reg_write = True
                     elif choice == "rename":
                         while True:
-                            ok, new_name = QtWidgets.QInputDialog.getText(None, "Custom Name", s["custom_name_prompt"])
-                            if not ok:
+                            new_name = self._ask_main(self.ask_text, s["app_title"], s["rename"])
+                            if new_name is None:
                                 self.progress.emit(merge_bilingual("installation_cancelled"))
                                 return
                             new_name = new_name.strip()
                             if not new_name:
-                                QtWidgets.QMessageBox.warning(None, "Error", s["custom_name_empty"])
                                 continue
                             if not os.path.splitext(new_name)[1]:
                                 new_name += os.path.splitext(dest_name)[1]
                             new_dest_path = os.path.join(self.install_dir, new_name)
                             if os.path.exists(new_dest_path):
-                                QtWidgets.QMessageBox.warning(None, "Error", s["file_exists_3choice"].format(new_name))
+                                _ = self._ask_main(self.ask_file_exists, s["app_title"], s["file_exists_3choice"].format(new_name))
                                 continue
                             shutil.copy(src_path, new_dest_path)
-                            apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base)
+                            if new_name.lower().endswith(".as"):
+                                apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base)
                             self.progress.emit(f"Installed {new_name}.")
                             self.files_installed.append(new_dest_path)
-                            if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_new"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
+                            if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_new"]):
                                 reg_write = True
                             break
                 else:
                     shutil.copy(src_path, dest_path)
-                    apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
+                    if dest_name.lower().endswith(".as"):
+                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
                     self.progress.emit(f"Installed {dest_name}.")
                     self.files_installed.append(dest_path)
-                    if QtWidgets.QMessageBox.question(None, "Registry", s["ask_reg_new"], QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
+                    if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_new"]):
                         reg_write = True
 
             if reg_write:
@@ -410,35 +562,44 @@ class InstallThread(QtCore.QThread):
                     version=PLUGIN_VERSION,
                     context_type=context_type
                 )
-            self.progress.emit(merge_bilingual("installation_complete"))
+
+            self.progress.emit(LANGUAGE_STRINGS["en"]["installation_complete"] + "\n" +
+                               LANGUAGE_STRINGS["zh"]["installation_complete"])
             self.progress.emit("DONE")
         except Exception as e:
             self.progress.emit(merge_bilingual("installation_failed").format(str(e)))
             return
 
-# ========= Wizard Pages =========
+# ========= Wizard Pages & UI =========
+
+def set_button_texts_for(wizard):
+    set_wizard_button_texts(wizard)
+
 class LanguagePage(QtWidgets.QWizardPage):
     def __init__(self, wizard):
         super().__init__()
         self.wizard = wizard
         layout = QtWidgets.QVBoxLayout()
+        self.title_label = QtWidgets.QLabel()
         self.rb_en = QtWidgets.QRadioButton()
         self.rb_zh = QtWidgets.QRadioButton()
         self.rb_en.setChecked(True)
-        layout.addWidget(QtWidgets.QLabel())
+        layout.addWidget(self.title_label)
         layout.addWidget(self.rb_en)
         layout.addWidget(self.rb_zh)
         self.setLayout(layout)
 
     def initializePage(self):
-        s = self.wizard.strings
-        self.setTitle(s["choose_language"])
-        self.rb_en.setText(s["language_english"])
-        self.rb_zh.setText(s["language_chinese"])
+        self.setTitle(LANGUAGE_STRINGS["en"]["choose_language"] + " / " + LANGUAGE_STRINGS["zh"]["choose_language"])
+        self.title_label.setText(LANGUAGE_STRINGS["en"]["choose_language"] + " / " + LANGUAGE_STRINGS["zh"]["choose_language"])
+        self.rb_en.setText(LANGUAGE_STRINGS["en"]["language_english"])
+        self.rb_zh.setText(LANGUAGE_STRINGS["zh"]["language_chinese"])
+        set_button_texts_for(self.wizard)
 
     def validatePage(self):
         self.wizard.language = 'zh' if self.rb_zh.isChecked() else 'en'
         self.wizard.strings = LANGUAGE_STRINGS[self.wizard.language]
+        set_button_texts_for(self.wizard)
         return True
 
 class WelcomePage(QtWidgets.QWizardPage):
@@ -448,42 +609,45 @@ class WelcomePage(QtWidgets.QWizardPage):
         layout = QtWidgets.QVBoxLayout()
         self.label = QtWidgets.QLabel()
         self.label.setWordWrap(True)
-        layout.addWidget(self.label)
         self.author = QtWidgets.QLabel()
         self.author.setOpenExternalLinks(True)
+        layout.addWidget(self.label)
         layout.addWidget(self.author)
         self.setLayout(layout)
 
     def initializePage(self):
         s = self.wizard.strings
-        self.setTitle("PotPlayer ChatGPT Translate")
+        self.setTitle(s["welcome_title"])
         self.label.setText(s["welcome_message"])
         self.author.setText(f"<a href='https://github.com/Felix3322/PotPlayer_ChatGPT_Translate'>{s['author_info']}</a>")
+        set_button_texts_for(self.wizard)
 
 class LicensePage(QtWidgets.QWizardPage):
     def __init__(self, wizard):
         super().__init__()
         self.wizard = wizard
         layout = QtWidgets.QVBoxLayout()
+        self.intro = QtWidgets.QLabel()
+        self.intro.setWordWrap(True)
         self.text = QtWidgets.QTextEdit()
         self.text.setReadOnly(True)
-        layout.addWidget(self.text)
         self.chk = QtWidgets.QCheckBox()
+        layout.addWidget(self.intro)
+        layout.addWidget(self.text)
         layout.addWidget(self.chk)
         self.setLayout(layout)
 
     def initializePage(self):
         s = self.wizard.strings
         self.setTitle(s["license_title"])
-        self.text.setPlainText(read_license())
+        self.intro.setText(s["license_intro"])
         self.chk.setText(s["license_agree"])
-
-    def isComplete(self):
-        return self.chk.isChecked()
+        self.text.setPlainText(read_license())
+        set_button_texts_for(self.wizard)
 
     def validatePage(self):
         if not self.chk.isChecked():
-            QtWidgets.QMessageBox.warning(self, "Warning", self.wizard.strings["license_reject"])
+            QtWidgets.QMessageBox.warning(self, self.wizard.strings["app_title"], self.wizard.strings["license_reject"])
             return False
         return True
 
@@ -492,38 +656,48 @@ class DirectoryPage(QtWidgets.QWizardPage):
         super().__init__()
         self.wizard = wizard
         layout = QtWidgets.QVBoxLayout()
-        self.lbl = QtWidgets.QLabel()
-        layout.addWidget(self.lbl)
+        self.info = QtWidgets.QLabel()
+        self.info.setWordWrap(True)
+        layout.addWidget(self.info)
         h = QtWidgets.QHBoxLayout()
         self.edit = QtWidgets.QLineEdit()
-        h.addWidget(self.edit)
         self.browse = QtWidgets.QPushButton()
         self.browse.clicked.connect(self.on_browse)
+        h.addWidget(self.edit)
         h.addWidget(self.browse)
         layout.addLayout(h)
         self.setLayout(layout)
 
     def initializePage(self):
         s = self.wizard.strings
-        self.setTitle(s["select_install_dir"])
-        self.lbl.setText("")
+        self.setTitle(s["select_install_dir_title"])
+        self.info.setText(s["select_install_dir_explain"])
         self.browse.setText(s["browse"])
+        set_button_texts_for(self.wizard)
+
         detected = auto_detect_directory()
         if detected:
-            if QtWidgets.QMessageBox.question(self, "Confirm", s["confirm_path"].format(detected), QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No) == QtWidgets.QMessageBox.StandardButton.Yes:
+            if QtWidgets.QMessageBox.question(
+                self, s["app_title"],
+                s["confirm_path"].format(detected),
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+            ) == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.edit.setText(detected)
-        self.edit.textChanged.emit(self.edit.text())
+        else:
+            QtWidgets.QMessageBox.information(self, s["app_title"], s["not_detected"])
 
     def on_browse(self):
-        d = QtWidgets.QFileDialog.getExistingDirectory(self, self.wizard.strings["select_directory"])
+        s = self.wizard.strings
+        d = QtWidgets.QFileDialog.getExistingDirectory(self, s["select_directory"])
         if d:
             self.edit.setText(d)
 
     def validatePage(self):
+        s = self.wizard.strings
         if not self.edit.text():
-            QtWidgets.QMessageBox.warning(self, "Error", self.wizard.strings["select_directory"])
+            QtWidgets.QMessageBox.warning(self, s["app_title"], s["select_directory"])
             return False
-        self.wizard.install_dir = self.edit.text()
+        self.wizard.install_dir = self.edit.text().strip()
         return True
 
 class VersionPage(QtWidgets.QWizardPage):
@@ -531,26 +705,35 @@ class VersionPage(QtWidgets.QWizardPage):
         super().__init__()
         self.wizard = wizard
         layout = QtWidgets.QVBoxLayout()
+        self.prompt = QtWidgets.QLabel()
+        self.prompt.setWordWrap(True)
         self.rb1 = QtWidgets.QRadioButton()
         self.rb2 = QtWidgets.QRadioButton()
         self.desc1 = QtWidgets.QLabel()
         self.desc1.setWordWrap(True)
         self.desc2 = QtWidgets.QLabel()
         self.desc2.setWordWrap(True)
-        self.rb1.setChecked(True)
+        self.explain = QtWidgets.QLabel()
+        self.explain.setWordWrap(True)
+        layout.addWidget(self.prompt)
         layout.addWidget(self.rb1)
         layout.addWidget(self.desc1)
         layout.addWidget(self.rb2)
         layout.addWidget(self.desc2)
+        layout.addWidget(self.explain)
         self.setLayout(layout)
 
     def initializePage(self):
         s = self.wizard.strings
-        self.setTitle(s["choose_version"])
+        self.setTitle(s["choose_version_title"])
+        self.prompt.setText(s["choose_version"])
         self.rb1.setText(s["with_context"])
         self.rb2.setText(s["without_context"])
         self.desc1.setText(s["with_context_description"])
         self.desc2.setText(s["without_context_description"])
+        self.explain.setText(s["version_explain"])
+        self.rb1.setChecked(True)
+        set_button_texts_for(self.wizard)
 
     def validatePage(self):
         self.wizard.version = 'without_context' if self.rb2.isChecked() else 'with_context'
@@ -560,44 +743,96 @@ class ConfigPage(QtWidgets.QWizardPage):
     def __init__(self, wizard):
         super().__init__()
         self.wizard = wizard
-        layout = QtWidgets.QVBoxLayout()
-        form = QtWidgets.QFormLayout()
+
+        self.intro = QtWidgets.QLabel()
+        self.intro.setWordWrap(True)
+
+        self.form = QtWidgets.QFormLayout()
+        self.model_combo = QtWidgets.QComboBox()
         self.model_edit = QtWidgets.QLineEdit()
         self.api_edit = QtWidgets.QLineEdit()
         self.key_edit = QtWidgets.QLineEdit()
         self.key_edit.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
-        form.addRow("", self.model_edit)
-        form.addRow("", self.api_edit)
-        form.addRow("", self.key_edit)
-        layout.addLayout(form)
-        self.status = QtWidgets.QLabel()
-        layout.addWidget(self.status)
+
+        self.purchase_btn = QtWidgets.QPushButton()
         self.verify_btn = QtWidgets.QPushButton()
-        self.verify_btn.clicked.connect(self.verify)
-        layout_h = QtWidgets.QHBoxLayout()
-        layout_h.addWidget(self.verify_btn)
         self.skip_btn = QtWidgets.QPushButton()
+        self.purchase_btn.clicked.connect(self.open_purchase_page)
+        self.verify_btn.clicked.connect(self.verify)
         self.skip_btn.clicked.connect(self.on_skip)
-        layout_h.addWidget(self.skip_btn)
-        layout.addLayout(layout_h)
-        self.skip = False
+
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addWidget(self.purchase_btn)
+        btn_row.addStretch(1)
+        btn_row.addWidget(self.verify_btn)
+        btn_row.addWidget(self.skip_btn)
+
+        self.status = QtWidgets.QLabel("")
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.intro)
+        layout.addLayout(self.form)
+        layout.addLayout(btn_row)
+        layout.addWidget(self.status)
         self.setLayout(layout)
+
+        self.purchase_link = ""
+        self.skip = False
 
     def initializePage(self):
         s = self.wizard.strings
         self.setTitle(s["config_title"])
-        labels = [s["config_model"], s["config_api"], s["config_key"]]
-        form = self.layout().itemAt(0)
-        form.setWidget(0, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(labels[0]))
-        form.setWidget(1, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(labels[1]))
-        form.setWidget(2, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(labels[2]))
+        self.intro.setText(s["config_intro"])
+        set_button_texts_for(self.wizard)
+
+        while self.form.rowCount():
+            self.form.removeRow(0)
+
+        try:
+            self.model_combo.currentTextChanged.disconnect(self.on_model_change)
+        except TypeError:
+            pass
+        self.model_combo.clear()
+        preset_names = [k for k in API_PROVIDERS.keys() if k != "__CUSTOM__"]
+        self.model_combo.addItems(preset_names + ["Custom..."])
+        self.model_combo.currentTextChanged.connect(self.on_model_change)
+
+        self.form.addRow(s["config_model_preset"], self.model_combo)
+        self.form.addRow(s["config_model"], self.model_edit)
+        self.form.addRow(s["config_api"], self.api_edit)
+        self.form.addRow(s["config_key"], self.key_edit)
+
+        self.purchase_btn.setText(s["purchase_button"])
+        self.purchase_btn.setToolTip(s["purchase_hint"])
         self.verify_btn.setText(s["verify"])
         self.skip_btn.setText(s["skip"])
+
+        first = self.model_combo.itemText(0)
+        self.on_model_change(first, initializing=True)
+        self.status.setText("")
         self.skip = False
-        if not self.model_edit.text():
-            self.model_edit.setText(self.wizard.model)
-        if not self.api_edit.text():
-            self.api_edit.setText(self.wizard.api_base)
+
+    def on_model_change(self, name, initializing=False):
+        if name == "Custom...":
+            self.model_edit.setReadOnly(False)
+            self.api_edit.setReadOnly(False)
+            if not initializing:
+                self.model_edit.setText("")
+                self.api_edit.setText("")
+            self.purchase_link = ""
+        else:
+            provider = API_PROVIDERS.get(name, API_PROVIDERS["__CUSTOM__"])
+            self.model_edit.setReadOnly(True)
+            self.api_edit.setReadOnly(False)
+            self.model_edit.setText(provider.get("model", ""))
+            self.api_edit.setText(provider.get("api_base", ""))
+            self.purchase_link = provider.get("purchase_page", "")
+        if not initializing:
+            self.status.setText("")
+
+    def open_purchase_page(self):
+        if self.purchase_link:
+            webbrowser.open(self.purchase_link)
 
     def verify(self):
         s = self.wizard.strings
@@ -617,28 +852,43 @@ class ConfigPage(QtWidgets.QWizardPage):
 
     def on_skip(self):
         self.skip = True
-        self.wizard().next()
+        self.wizard.next()
 
     def validatePage(self):
-        self.wizard.model = self.model_edit.text().strip() or self.wizard.model
-        self.wizard.api_base = self.api_edit.text().strip() or self.wizard.api_base
+        self.wizard.model = self.model_edit.text().strip()
+        self.wizard.api_base = _normalize_base_url_for_openai(self.api_edit.text().strip())
         self.wizard.api_key = self.key_edit.text().strip()
         if self.skip:
             return True
         return self.verify()
 
 class ProgressPage(QtWidgets.QWizardPage):
+    class UIProxy(QtCore.QObject):
+        answer = QtCore.pyqtSignal(object)
+        def __init__(self, parent=None):
+            super().__init__(parent)
+
     def __init__(self, wizard):
         super().__init__()
         self.wizard = wizard
-        layout = QtWidgets.QVBoxLayout()
+        self.header = QtWidgets.QLabel()
         self.text = QtWidgets.QTextEdit()
         self.text.setReadOnly(True)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.header)
         layout.addWidget(self.text)
         self.setLayout(layout)
         self.thread = None
+        self.proxy = ProgressPage.UIProxy(self)
+        self.s = None
 
     def initializePage(self):
+        s = self.wizard.strings
+        self.s = s
+        self.setTitle(s["install_progress_title"])
+        self.header.setText(s["install_progress"])
+        set_button_texts_for(self.wizard)
+
         self.text.clear()
         self.thread = InstallThread(
             self.wizard.install_dir,
@@ -650,18 +900,74 @@ class ProgressPage(QtWidgets.QWizardPage):
             self.wizard.api_base,
         )
         self.thread.progress.connect(self.append_text)
+        self.thread.ask_file_exists.connect(self.on_ask_file_exists)
+        self.thread.ask_yesno.connect(self.on_ask_yesno)
+        self.thread.ask_text.connect(self.on_ask_text)
+        self.proxy.answer.connect(self.thread.receive_answer)
         self.thread.start()
 
+    @QtCore.pyqtSlot(str)
     def append_text(self, msg):
         self.text.append(msg)
         if msg == "DONE":
             self.wizard.next()
 
+    @QtCore.pyqtSlot(str, str)
+    def on_ask_file_exists(self, title, message):
+        s = self.s
+        box = QtWidgets.QMessageBox(self)
+        box.setWindowTitle(title)
+        box.setText(message)
+        overwrite = box.addButton(s["overwrite"], QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+        rename = box.addButton(s["rename"], QtWidgets.QMessageBox.ButtonRole.ActionRole)
+        cancel = box.addButton(s["cancel"], QtWidgets.QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() == overwrite:
+            self.proxy.answer.emit("overwrite")
+        elif box.clickedButton() == rename:
+            self.proxy.answer.emit("rename")
+        else:
+            self.proxy.answer.emit(None)
+
+    @QtCore.pyqtSlot(str, str)
+    def on_ask_yesno(self, title, message):
+        ret = QtWidgets.QMessageBox.question(
+            self, title, message,
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+        )
+        self.proxy.answer.emit(ret == QtWidgets.QMessageBox.StandardButton.Yes)
+
+    @QtCore.pyqtSlot(str, str)
+    def on_ask_text(self, title, prompt):
+        s = self.s
+        while True:
+            text, ok = QtWidgets.QInputDialog.getText(self, title, prompt)
+            if not ok:
+                self.proxy.answer.emit(None)
+                return
+            text = text.strip()
+            if text:
+                self.proxy.answer.emit(text)
+                return
+            QtWidgets.QMessageBox.warning(self, title, s["rename"])
+
 class FinishPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.label = QtWidgets.QLabel()
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
     def initializePage(self):
-        self.setTitle(self.wizard.strings["installation_complete"])
+        s = self.wizard.strings
+        self.setTitle(s["finish_title"])
+        self.label.setText(s["installation_complete"])
+        set_button_texts_for(self.wizard)
 
 # ========= Wizard =========
+
 class InstallerWizard(QtWidgets.QWizard):
     def __init__(self):
         super().__init__()
@@ -670,10 +976,12 @@ class InstallerWizard(QtWidgets.QWizard):
         self.install_dir = ''
         self.version = ''
         self.api_key = ''
-        self.model = 'gpt-4o'
-        self.api_base = 'https://api.openai.com/v1/chat/completions'
-        self.setWindowTitle("PotPlayer ChatGPT Translate Installer")
+        self.model = API_PROVIDERS["gpt-4o"]["model"]
+        self.api_base = API_PROVIDERS["gpt-4o"]["api_base"]
+
         self.setWizardStyle(QtWidgets.QWizard.WizardStyle.ModernStyle)
+        set_wizard_button_texts(self)
+
         self.addPage(LanguagePage(self))
         self.addPage(WelcomePage(self))
         self.addPage(LicensePage(self))
@@ -685,10 +993,26 @@ class InstallerWizard(QtWidgets.QWizard):
 
 # ========= main =========
 
+def set_high_dpi_attrs_if_available():
+    # Qt6 默认开启 HiDPI；仅当属性存在时设置，避免 AttributeError
+    try:
+        AA = QtCore.Qt.ApplicationAttribute
+        if hasattr(AA, "AA_UseHighDpiPixmaps"):
+            QtWidgets.QApplication.setAttribute(AA.AA_UseHighDpiPixmaps)
+        if hasattr(AA, "AA_EnableHighDpiScaling"):
+            QtWidgets.QApplication.setAttribute(AA.AA_EnableHighDpiScaling)
+    except Exception:
+        pass
+
 def main():
+    set_high_dpi_attrs_if_available()
     app = QtWidgets.QApplication(sys.argv)
+
+    # 强制深色配色
+    apply_fusion_dark_palette(app)
+
     if not is_admin():
-        QtWidgets.QMessageBox.warning(None, "Admin Required", merge_bilingual("admin_required"))
+        QtWidgets.QMessageBox.warning(None, LANGUAGE_STRINGS["en"]["app_title"], merge_bilingual("admin_required"))
         restart_as_admin()
         return
     wizard = InstallerWizard()
