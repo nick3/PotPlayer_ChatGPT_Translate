@@ -28,9 +28,13 @@ string GetLoginTitle() {
 
 string GetLoginDesc() {
     return "{$CP949=모델 이름, API 주소, 선택적 nullkey, 지연(ms) 및 재시도 모드(0-3)를 입력하십시오 (예: gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
+         + "{$CP949=\n\n설치 프로그램에서 미리 구성한 값이 있다면 PotPlayer 패널에서 다시 설정하기 전까지 해당 값을 사용하며, 패널에서 설정하면 해당 설정이 항상 우선 적용됩니다.$}"
          + "{$CP950=請輸入模型名稱、API 地址、可選的 nullkey、延遲毫秒與重試模式(0-3)（例如: gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
+         + "{$CP950=\n\n如果安裝包已寫入預設配置，在 PotPlayer 面板中未重新設定之前會沿用這些配置；一旦在面板中調整，將始終以面板設定為準。$}"
          + "{$CP936=请输入模型名称、API 地址、可选的 nullkey、延迟毫秒和重试模式(0-3)（例如: gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
-         + "{$CP0=Please enter the model name, API URL, optional 'nullkey', optional delay in ms, and retry mode 0-3 (e.g., gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}";
+         + "{$CP936=\n\n如果安装包已经写入默认配置，在 PotPlayer 面板中没有重新设置之前会继续使用这些配置；一旦在面板中修改，将始终以面板设置为准。$}"
+         + "{$CP0=Please enter the model name, API URL, optional 'nullkey', optional delay in ms, and retry mode 0-3 (e.g., gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
+         + "{$CP0=\n\nInstaller defaults will remain in effect until you update the settings in PotPlayer's panel, and any panel changes will always take priority.$}";
 }
 
 string GetUserText() {
@@ -61,6 +65,27 @@ string apiUrl = pre_apiUrl; // Default API URL
 string delay_ms = pre_delay_ms; // Request delay in ms
 string retry_mode = pre_retry_mode; // Auto retry mode
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+
+// Helper functions to load configuration while respecting installer defaults
+string BuildConfigSentinel(const string &in key) {
+    return "#__POTPLAYER_CFG_UNSET__#" + key + "#__";
+}
+
+string LoadInstallerConfig(const string &in key, const string &in installerValue) {
+    string sentinel = BuildConfigSentinel(key);
+    string storedValue = HostLoadString(key, sentinel);
+    if (storedValue == sentinel)
+        return installerValue;
+    return storedValue;
+}
+
+void RefreshConfiguration() {
+    api_key = LoadInstallerConfig("wc_api_key", pre_api_key);
+    selected_model = LoadInstallerConfig("wc_selected_model", pre_selected_model);
+    apiUrl = LoadInstallerConfig("wc_apiUrl", pre_apiUrl);
+    delay_ms = LoadInstallerConfig("wc_delay_ms", pre_delay_ms);
+    retry_mode = LoadInstallerConfig("wc_retry_mode", pre_retry_mode);
+}
 
 // Supported Language List
 array<string> LangTable =
@@ -417,9 +442,7 @@ int GetModelMaxTokens(const string &in modelName) {
 
 // Translation Function (Without Context Support)
 string Translate(string Text, string &in SrcLang, string &in DstLang) {
-    api_key = HostLoadString("wc_api_key", api_key);
-    selected_model = HostLoadString("wc_selected_model", selected_model);
-    apiUrl = HostLoadString("wc_apiUrl", apiUrl);
+    RefreshConfiguration();
 
     if (api_key == "") {
         HostPrintUTF8("API Key not configured. Please enter it in the settings menu.\n");
@@ -447,8 +470,6 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
                          "\"max_tokens\":1000,\"temperature\":0}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
-    delay_ms = HostLoadString("wc_delay_ms", delay_ms);
-    retry_mode = HostLoadString("wc_retry_mode", retry_mode);
     int delayInt = ParseInt(delay_ms);
     int retryModeInt = ParseInt(retry_mode);
     string response = "";
@@ -510,11 +531,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 // Plugin Initialization
 void OnInitialize() {
     HostPrintUTF8("ChatGPT translation plugin loaded.\n");
-    api_key = HostLoadString("wc_api_key", api_key);
-    selected_model = HostLoadString("wc_selected_model", selected_model);
-    apiUrl = HostLoadString("wc_apiUrl", apiUrl);
-    delay_ms = HostLoadString("wc_delay_ms", delay_ms);
-    retry_mode = HostLoadString("wc_retry_mode", retry_mode);
+    RefreshConfiguration();
     if (api_key != "") {
         HostPrintUTF8("Saved API Key, model name, and API URL loaded.\n");
     }
