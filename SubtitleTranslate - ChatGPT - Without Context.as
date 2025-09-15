@@ -12,7 +12,7 @@ string GetTitle() {
 }
 
 string GetVersion() {
-    return "1.5.2-wc";
+    return "1.6-wc";
 }
 
 string GetDesc() {
@@ -27,17 +27,17 @@ string GetLoginTitle() {
 }
 
 string GetLoginDesc() {
-    return "{$CP949=모델 이름과 API 주소, 그리고 API 키를 입력하십시오 (예: gpt-4.1-mini|https://api.openai.com/v1/chat/completions).$}"
-         + "{$CP950=請輸入模型名稱與 API 地址，以及 API 金鑰（例如: gpt-4.1-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP936=请输入模型名称和 API 地址，以及 API 密钥（例如: gpt-4.1-mini|https://api.openai.com/v1/chat/completions）。$}"
-         + "{$CP0=Please enter the model name + API URL and provide the API Key (e.g., gpt-4.1-mini|https://api.openai.com/v1/chat/completions).$}";
+    return "{$CP949=모델 이름, API 주소, 선택적 nullkey, 지연(ms) 및 재시도 모드(0-3)를 입력하십시오 (예: gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
+         + "{$CP950=請輸入模型名稱、API 地址、可選的 nullkey、延遲毫秒與重試模式(0-3)（例如: gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
+         + "{$CP936=请输入模型名称、API 地址、可选的 nullkey、延迟毫秒和重试模式(0-3)（例如: gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
+         + "{$CP0=Please enter the model name, API URL, optional 'nullkey', optional delay in ms, and retry mode 0-3 (e.g., gpt-4.1-mini|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}";
 }
 
 string GetUserText() {
-    return "{$CP949=모델 이름|API 주소 (현재: " + selected_model + " | " + apiUrl + ")$}"
-         + "{$CP950=模型名稱|API 地址 (目前: " + selected_model + " | " + apiUrl + ")$}"
-         + "{$CP936=模型名称|API 地址 (目前: " + selected_model + " | " + apiUrl + ")$}"
-         + "{$CP0=Model Name|API URL (Current: " + selected_model + " | " + apiUrl + ")$}";
+    return "{$CP949=모델 이름|API 주소|nullkey|지연(ms)|재시도 모드 (현재: " + selected_model + " | " + apiUrl + " | " + delay_ms + " | " + retry_mode + ")$}"
+         + "{$CP950=模型名稱|API 地址|nullkey|延遲ms|重試模式 (目前: " + selected_model + " | " + apiUrl + " | " + delay_ms + " | " + retry_mode + ")$}"
+         + "{$CP936=模型名称|API 地址|nullkey|延迟ms|重试模式 (目前: " + selected_model + " | " + apiUrl + " | " + delay_ms + " | " + retry_mode + ")$}"
+         + "{$CP0=Model Name|API URL|nullkey|Delay ms|Retry mode (Current: " + selected_model + " | " + apiUrl + " | " + delay_ms + " | " + retry_mode + ")$}";
 }
 
 string GetPasswordText() {
@@ -52,10 +52,14 @@ string GetPasswordText() {
 string pre_api_key = ""; // will be replaced during installation
 string pre_selected_model = "gpt-4.1-mini"; // will be replaced during installation
 string pre_apiUrl = "https://api.openai.com/v1/chat/completions"; // will be replaced during installation
+string pre_delay_ms = "0"; // will be replaced during installation
+string pre_retry_mode = "0"; // will be replaced during installation
 
 string api_key = pre_api_key;
 string selected_model = pre_selected_model; // Default model
 string apiUrl = pre_apiUrl; // Default API URL
+string delay_ms = pre_delay_ms; // Request delay in ms
+string retry_mode = pre_retry_mode; // Auto retry mode
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 
 // Supported Language List
@@ -178,6 +182,28 @@ array<string> GetDstLangs() {
     return ret;
 }
 
+bool IsDigits(const string &in s) {
+    if (s.length() == 0)
+        return false;
+    for (uint i = 0; i < s.length(); i++) {
+        uint8 c = s[i];
+        if (c < 48 || c > 57)
+            return false;
+    }
+    return true;
+}
+
+int ParseInt(const string &in s) {
+    int v = 0;
+    for (uint i = 0; i < s.length(); i++) {
+        uint8 c = s[i];
+        if (c < 48 || c > 57)
+            return 0;
+        v = v * 10 + (c - 48);
+    }
+    return v;
+}
+
 // API Key and API Base verification process
 string ServerLogin(string User, string Pass) {
     string errorAccum = "";
@@ -194,20 +220,27 @@ string ServerLogin(string User, string Pass) {
     }
     string userModel = "";
     string customApiUrl = "";
-    bool allowNullApiKey = false;
+    bool allowNullApiKey = (Pass == "");
+    string delayToken = "";
+    string retryToken = "";
     if (tokens.length() >= 1) {
         userModel = tokens[0];
     }
-    if (tokens.length() >= 2) {
-        if (tokens[1] == "nullkey")
+    for (int i = 1; i < int(tokens.length()); i++) {
+        string t = tokens[i];
+        if (t == "nullkey")
             allowNullApiKey = true;
-        else
-            customApiUrl = tokens[1];
+        else if (t.substr(0,5) == "retry" && IsDigits(t.substr(5)))
+            retryToken = t.substr(5);
+        else if (IsDigits(t))
+            delayToken = t;
+        else if (customApiUrl == "")
+            customApiUrl = t;
     }
-    if (tokens.length() >= 3) {
-        if (tokens[2] == "nullkey")
-            allowNullApiKey = true;
-    }
+    if (retryToken != "")
+        retry_mode = retryToken;
+    if (delayToken != "")
+        delay_ms = delayToken;
     if (userModel == "") {
         errorAccum += "Model name not entered. Please enter a valid model name.\n";
         return errorAccum;
@@ -245,6 +278,8 @@ string ServerLogin(string User, string Pass) {
                 HostSaveString("wc_api_key", api_key);
                 HostSaveString("wc_selected_model", selected_model);
                 HostSaveString("wc_apiUrl", apiUrlLocal);
+                HostSaveString("wc_delay_ms", delay_ms);
+                HostSaveString("wc_retry_mode", retry_mode);
                 return "200 ok";
             } else {
                 if (testRoot.isObject() && testRoot["error"].isObject() && testRoot["error"]["message"].isString())
@@ -272,6 +307,8 @@ string ServerLogin(string User, string Pass) {
                     HostSaveString("wc_api_key", api_key);
                     HostSaveString("wc_selected_model", selected_model);
                     HostSaveString("wc_apiUrl", apiUrlLocal);
+                    HostSaveString("wc_delay_ms", delay_ms);
+                HostSaveString("wc_retry_mode", retry_mode);
                     return "Warning: Your API base was auto-corrected to: " + apiUrlLocal + "\n200 ok";
                 } else {
                     if (correctedRoot.isObject() && correctedRoot["error"].isObject() && correctedRoot["error"]["message"].isString())
@@ -337,9 +374,13 @@ void ServerLogout() {
     api_key = "";
     selected_model = pre_selected_model;
     apiUrl = pre_apiUrl;
+    delay_ms = pre_delay_ms;
+    retry_mode = pre_retry_mode;
     HostSaveString("wc_api_key", "");
     HostSaveString("wc_selected_model", selected_model);
     HostSaveString("wc_apiUrl", apiUrl);
+    HostSaveString("wc_delay_ms", delay_ms);
+                HostSaveString("wc_retry_mode", retry_mode);
     HostPrintUTF8("Successfully logged out.\n");
 }
 
@@ -394,8 +435,8 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         SrcLang = "";
     }
 
-    string systemMsg = "You are a professional subtitle translate tool. Do not output any explanatory text or extra context.";
-    string userMsg = "You are an expert subtitle translate tool with a deep understanding of both language and culture. Do not output any explanatory text or extra context. Translate the following subtitle from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\n" + Text;
+    string systemMsg = "You translate subtitles. Output only the translation.";
+    string userMsg = "Translate from " + (SrcLang == "" ? "Auto Detect" : SrcLang) + " to " + DstLang + ":\n" + Text;
 
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
@@ -406,8 +447,22 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
                          "\"max_tokens\":1000,\"temperature\":0}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
-
-    string response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
+    delay_ms = HostLoadString("wc_delay_ms", delay_ms);
+    retry_mode = HostLoadString("wc_retry_mode", retry_mode);
+    int delayInt = ParseInt(delay_ms);
+    int retryModeInt = ParseInt(retry_mode);
+    string response = "";
+    int attempts = 0;
+    while (true) {
+        if (attempts == 0 || (retryModeInt == 3 && attempts > 0)) {
+            if (delayInt > 0)
+                Sleep(delayInt);
+        }
+        response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
+        if (response != "" || retryModeInt == 0 || (retryModeInt == 1 && attempts >= 1))
+            break;
+        attempts++;
+    }
     if (response == "") {
         HostPrintUTF8("Translation request failed. Please check network connection or API Key.\n");
         return "";
@@ -458,6 +513,8 @@ void OnInitialize() {
     api_key = HostLoadString("wc_api_key", api_key);
     selected_model = HostLoadString("wc_selected_model", selected_model);
     apiUrl = HostLoadString("wc_apiUrl", apiUrl);
+    delay_ms = HostLoadString("wc_delay_ms", delay_ms);
+    retry_mode = HostLoadString("wc_retry_mode", retry_mode);
     if (api_key != "") {
         HostPrintUTF8("Saved API Key, model name, and API URL loaded.\n");
     }
