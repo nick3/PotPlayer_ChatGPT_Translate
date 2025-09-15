@@ -21,6 +21,21 @@ PLUGIN_VERSION = "1.6"
 # 重要：api_base 统一为“根路径”（例如 https://api.openai.com/v1），不要带 /chat/completions
 API_PROVIDERS = {
     # Official OpenAI presets
+    "gpt-5": {
+        "model": "gpt-5",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    "gpt-5-mini": {
+        "model": "gpt-5-mini",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    "gpt-5-nano": {
+        "model": "gpt-5-nano",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
     "gpt-4o": {
         "model": "gpt-4o",
         "api_base": "https://api.openai.com/v1",
@@ -118,7 +133,7 @@ LANGUAGE_STRINGS = {
         "verify_fail": "Verification failed:\n{}",
         "purchase_hint": "This button opens the billing/recharge page for the selected model/provider.",
         "delay_title": "Request Delay",
-        "delay_intro": "Set a delay (ms) between API requests to avoid rate limits. <a href=\"https://platform.openai.com/docs/guides/rate-limits\">Learn more</a>.",
+        "delay_intro": "Set a delay (ms) between API requests to avoid rate limits. <a href=\"https://platform.openai.com/docs/guides/rate-limits\">Learn more</a>.\nNo configuration is required unless translation problems are encountered.",
         "delay_label": "Delay (ms):",
         "retry_title": "Auto Retry",
         "retry_intro": "Choose how failed requests are retried. \"Until success (delayed)\" waits the configured delay between attempts.",
@@ -212,7 +227,7 @@ LANGUAGE_STRINGS = {
         "verify_fail": "验证失败：\n{}",
         "purchase_hint": "此按钮会打开所选模型/供应商的充值或购买页面。",
         "delay_title": "请求延迟",
-        "delay_intro": "设置API请求之间的延迟(毫秒)以避免速率限制。<a href=\"https://platform.openai.com/docs/guides/rate-limits\">详见说明</a>",
+        "delay_intro": "设置API请求之间的延迟(毫秒)以避免速率限制。<a href=\"https://platform.openai.com/docs/guides/rate-limits\">详见说明</a>\n如果没有出现翻译问题，就不需要进行额外设置。",
         "delay_label": "延迟 (毫秒):",
         "retry_title": "自动重试",
         "retry_intro": "选择请求失败后的重试方式。“重试直到成功（间隔）”会使用前面配置的延迟。",
@@ -366,8 +381,6 @@ def verify_api_settings(model, api_url, api_key):
                 {"role": "system", "content": "You are a test assistant."},
                 {"role": "user", "content": "Hello"}
             ],
-            max_tokens=1,
-            temperature=0
         )
         # 成功只需有 choices 即可
         if getattr(resp, "choices", None):
@@ -1106,8 +1119,8 @@ class InstallerWizard(QtWidgets.QWizard):
         self.install_dir = ''
         self.version = ''
         self.api_key = ''
-        self.model = API_PROVIDERS["gpt-4o"]["model"]
-        self.api_base = API_PROVIDERS["gpt-4o"]["api_base"]
+        self.model = API_PROVIDERS["gpt-5-nano"]["model"]
+        self.api_base = API_PROVIDERS["gpt-5-nano"]["api_base"]
         self.delay_ms = 0
         self.retry_mode = 0
         self.debug_mode = False

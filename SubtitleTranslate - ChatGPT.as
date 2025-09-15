@@ -495,7 +495,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     while (true) {
         if (attempts == 0 || (retryModeInt == 3 && attempts > 0)) {
             if (delayInt > 0)
-                Sleep(delayInt);
+                HostSleep(delayInt);
         }
         response = HostUrlGetString(apiUrl, UserAgent, headers, requestData);
         if (response != "" || retryModeInt == 0 || (retryModeInt == 1 && attempts >= 1))
