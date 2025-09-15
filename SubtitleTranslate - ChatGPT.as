@@ -26,13 +26,13 @@ string GetLoginTitle() {
 }
 
 string GetLoginDesc() {
-    return "{$CP949=모델 이름, API 주소, 선택적 nullkey, 지연(ms) 및 재시도 모드(0-3)를 입력하십시오 (예: gpt-4.1-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
+    return "{$CP949=모델 이름, API 주소, 선택적 nullkey, 지연(ms) 및 재시도 모드(0-3)를 입력하십시오 (예: gpt-5-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
          + "{$CP949=\n\n설치 프로그램에서 미리 구성한 값이 있다면 PotPlayer 패널에서 다시 설정하기 전까지 해당 값을 사용하며, 패널에서 설정하면 해당 설정이 항상 우선 적용됩니다.$}"
-         + "{$CP950=請輸入模型名稱、API 地址、可選的 nullkey、延遲毫秒與重試模式(0-3)（例如: gpt-4.1-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
+         + "{$CP950=請輸入模型名稱、API 地址、可選的 nullkey、延遲毫秒與重試模式(0-3)（例如: gpt-5-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
          + "{$CP950=\n\n如果安裝包已寫入預設配置，在 PotPlayer 面板中未重新設定之前會沿用這些配置；一旦在面板中調整，將始終以面板設定為準。$}"
-         + "{$CP936=请输入模型名称、API 地址、可选的 nullkey、延迟毫秒和重试模式(0-3)（例如: gpt-4.1-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
+         + "{$CP936=请输入模型名称、API 地址、可选的 nullkey、延迟毫秒和重试模式(0-3)（例如: gpt-5-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1）。$}"
          + "{$CP936=\n\n如果安装包已经写入默认配置，在 PotPlayer 面板中没有重新设置之前会继续使用这些配置；一旦在面板中修改，将始终以面板设置为准。$}"
-         + "{$CP0=Please enter the model name, API URL, optional 'nullkey', optional delay in ms, and retry mode 0-3 (e.g., gpt-4.1-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
+         + "{$CP0=Please enter the model name, API URL, optional 'nullkey', optional delay in ms, and retry mode 0-3 (e.g., gpt-5-nano|https://api.openai.com/v1/chat/completions|nullkey|500|retry1).$}"
          + "{$CP0=\n\nInstaller defaults will remain in effect until you update the settings in PotPlayer's panel, and any panel changes will always take priority.$}";
 }
 
@@ -53,7 +53,7 @@ string GetPasswordText() {
 // Global Variables
 // Pre-configured values (auto-filled by installer)
 string pre_api_key = ""; // will be replaced during installation
-string pre_selected_model = "gpt-4.1-nano"; // will be replaced during installation
+string pre_selected_model = "gpt-5-nano"; // will be replaced during installation
 string pre_apiUrl = "https://api.openai.com/v1/chat/completions"; // will be replaced during installation
 string pre_delay_ms = "0"; // will be replaced during installation
 string pre_retry_mode = "0"; // will be replaced during installation
@@ -434,7 +434,7 @@ int GetModelMaxTokens(const string &in modelName) {
         return 16384;
     else if (modelName == "gpt-4o")
         return 128000;
-    else if (modelName == "gpt-4.1-nano")
+    else if (modelName == "gpt-5-nano")
         return 128000;
     else
         return 4096;
