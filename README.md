@@ -128,6 +128,7 @@ Click below to watch the tutorial on Bilibili:
    - The PyQt6 wizard provides a modern, multi-language interface and automatically detects your PotPlayer path.
    - You can verify or preconfigure your API model, URL and key, or simply skip this step; the wizard will try to auto-correct common mistakes.
    - The optional `installer_qt.py` script from v1.5.2 can skip configuration when an existing installation is detected.
+   - Installer-provided defaults remain active until you update the plugin inside PotPlayer; any settings changed in the panel will always take priority over the installer values.
 
 ### Manual Installation 🔧
 

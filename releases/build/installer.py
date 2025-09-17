@@ -15,12 +15,27 @@ from openai import OpenAI
 import win32com.client
 from PyQt6 import QtWidgets, QtCore, QtGui
 
-PLUGIN_VERSION = "1.5.4"
+PLUGIN_VERSION = "1.6"
 
 # ========= Per-model provider dict (model → api_base ROOT & purchase link) =========
 # 重要：api_base 统一为“根路径”（例如 https://api.openai.com/v1），不要带 /chat/completions
 API_PROVIDERS = {
     # Official OpenAI presets
+    "gpt-5": {
+        "model": "gpt-5",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    "gpt-5-mini": {
+        "model": "gpt-5-mini",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
+    "gpt-5-nano": {
+        "model": "gpt-5-nano",
+        "api_base": "https://api.openai.com/v1",
+        "purchase_page": "https://platform.openai.com/account/billing"
+    },
     "gpt-4o": {
         "model": "gpt-4o",
         "api_base": "https://api.openai.com/v1",
@@ -102,11 +117,13 @@ LANGUAGE_STRINGS = {
                            "- Without Context: translates lines independently; cheaper and faster but less coherent across lines.",
 
         "config_title": "Verify / Configure API Settings",
-        "config_intro": "Provide API settings. Each preset model carries its own default API URL and billing page.\n"
-                        "You can also switch to 'Custom' and fill in your own endpoint.",
+        "config_intro": "Provide API settings. Each preset model carries its own default API URL and billing page.\n" 
+                        "You can also switch to 'Custom' and fill in your own endpoint.\n" 
+                        "If your endpoint doesn't require an API key, leave the field blank and the installer will configure a 'nullkey'.",
         "config_model": "Model:",
         "config_api": "API Base URL:",
         "config_key": "API Key:",
+        "config_key_placeholder": "Leave blank if not required (uses nullkey)",
         "config_model_preset": "Model Preset:",
         "purchase_button": "Open Billing / Recharge Page",
         "verify": "Verify",
@@ -115,6 +132,18 @@ LANGUAGE_STRINGS = {
         "verify_success": "Verification passed.",
         "verify_fail": "Verification failed:\n{}",
         "purchase_hint": "This button opens the billing/recharge page for the selected model/provider.",
+        "delay_title": "Request Delay",
+        "delay_intro": "Set a delay (ms) between API requests to avoid rate limits. <a href=\"https://platform.openai.com/docs/guides/rate-limits\">Learn more</a>.\nNo configuration is required unless translation problems are encountered.",
+        "delay_label": "Delay (ms):",
+        "retry_title": "Auto Retry",
+        "retry_intro": "Choose how failed requests are retried. \"Until success (delayed)\" waits the configured delay between attempts.",
+        "retry_label": "Retry Mode:",
+        "retry_off": "Off",
+        "retry_once": "Retry once immediately",
+        "retry_until": "Retry until success",
+        "retry_until_delay": "Retry until success (delayed)",
+        "debug_title": "Debug Mode",
+        "debug_label": "Enable debug console",
 
         "install_progress_title": "Installation Progress",
         "install_progress": "Installing files and applying configuration...",
@@ -182,11 +211,13 @@ LANGUAGE_STRINGS = {
                            "- 不带上下文：逐行翻译，成本更低但跨行一致性较弱。",
 
         "config_title": "验证 / 配置 API 设置",
-        "config_intro": "在此提供 API 设置。每个预设模型包含默认的 API 地址与充值页面。\n"
-                        "你也可以选择“自定义”并填写自己的地址。",
+        "config_intro": "在此提供 API 设置。每个预设模型包含默认的 API 地址与充值页面。\n" 
+                        "你也可以选择“自定义”并填写自己的地址。\n" 
+                        "若接口不需要 API Key，可将该字段留空，安装器会自动配置 nullkey。",
         "config_model": "模型：",
         "config_api": "API 根地址：",
         "config_key": "API Key：",
+        "config_key_placeholder": "若不需要可留空（使用 nullkey）",
         "config_model_preset": "模型预设：",
         "purchase_button": "打开充值/购买页面",
         "verify": "验证",
@@ -195,6 +226,18 @@ LANGUAGE_STRINGS = {
         "verify_success": "验证成功。",
         "verify_fail": "验证失败：\n{}",
         "purchase_hint": "此按钮会打开所选模型/供应商的充值或购买页面。",
+        "delay_title": "请求延迟",
+        "delay_intro": "设置API请求之间的延迟(毫秒)以避免速率限制。<a href=\"https://platform.openai.com/docs/guides/rate-limits\">详见说明</a>\n如果没有出现翻译问题，就不需要进行额外设置。",
+        "delay_label": "延迟 (毫秒):",
+        "retry_title": "自动重试",
+        "retry_intro": "选择请求失败后的重试方式。“重试直到成功（间隔）”会使用前面配置的延迟。",
+        "retry_label": "重试模式:",
+        "retry_off": "关闭",
+        "retry_once": "立即重试一次",
+        "retry_until": "重试直到成功",
+        "retry_until_delay": "重试直到成功（间隔重试）",
+        "debug_title": "调试模式",
+        "debug_label": "启用调试控制台",
 
         "install_progress_title": "安装进度",
         "install_progress": "正在复制文件并应用配置...",
@@ -338,8 +381,6 @@ def verify_api_settings(model, api_url, api_key):
                 {"role": "system", "content": "You are a test assistant."},
                 {"role": "user", "content": "Hello"}
             ],
-            max_tokens=1,
-            temperature=0
         )
         # 成功只需有 choices 即可
         if getattr(resp, "choices", None):
@@ -391,13 +432,22 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key):
         f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key}" /f\n')
         f.write("\nexit\n")
 
-def apply_preconfig(file_path, api_key, model, api_base):
+def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, debug_mode):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = f.read()
         data = re.sub(r'pre_api_key\s*=\s*".*?"', f'pre_api_key = "{api_key}"', data)
         data = re.sub(r'pre_selected_model\s*=\s*".*?"', f'pre_selected_model = "{model}"', data)
         data = re.sub(r'pre_apiUrl\s*=\s*".*?"', f'pre_apiUrl = "{api_base}"', data)
+        data = re.sub(r'pre_delay_ms\s*=\s*".*?"', f'pre_delay_ms = "{delay_ms}"', data)
+        data = re.sub(r'pre_retry_mode\s*=\s*".*?"', f'pre_retry_mode = "{retry_mode}"', data)
+        if debug_mode and "HostOpenConsole();" not in data:
+            idx = data.find("*/")
+            if idx != -1:
+                idx += 2
+                data = data[:idx] + "\nHostOpenConsole();\n" + data[idx:]
+            else:
+                data = "HostOpenConsole();\n" + data
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(data)
     except Exception:
@@ -469,7 +519,7 @@ class InstallThread(QtCore.QThread):
         self._loop = None
         return ans
 
-    def __init__(self, install_dir, version, script_dir, language, api_key, model, api_base):
+    def __init__(self, install_dir, version, script_dir, language, api_key, model, api_base, delay_ms, retry_mode, debug_mode):
         super().__init__()
         self.install_dir = install_dir
         self.version = version
@@ -478,6 +528,9 @@ class InstallThread(QtCore.QThread):
         self.api_key = api_key
         self.model = model
         self.api_base = api_base
+        self.delay_ms = delay_ms
+        self.retry_mode = retry_mode
+        self.debug_mode = debug_mode
         self.files_installed = []
         self._loop = None
         self._answer = None
@@ -506,7 +559,7 @@ class InstallThread(QtCore.QThread):
                     elif choice == "overwrite":
                         shutil.copy(src_path, dest_path)
                         if dest_name.lower().endswith(".as"):
-                            apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
+                            apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode)
                         self.progress.emit(f"Installed {dest_name} (Overwritten).")
                         self.files_installed.append(dest_path)
                         if reginfo:
@@ -532,7 +585,7 @@ class InstallThread(QtCore.QThread):
                                 continue
                             shutil.copy(src_path, new_dest_path)
                             if new_name.lower().endswith(".as"):
-                                apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base)
+                                apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode)
                             self.progress.emit(f"Installed {new_name}.")
                             self.files_installed.append(new_dest_path)
                             if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_new"]):
@@ -541,7 +594,7 @@ class InstallThread(QtCore.QThread):
                 else:
                     shutil.copy(src_path, dest_path)
                     if dest_name.lower().endswith(".as"):
-                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base)
+                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode)
                     self.progress.emit(f"Installed {dest_name}.")
                     self.files_installed.append(dest_path)
                     if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_new"]):
@@ -629,6 +682,10 @@ class LicensePage(QtWidgets.QWizardPage):
         layout = QtWidgets.QVBoxLayout()
         self.intro = QtWidgets.QLabel()
         self.intro.setWordWrap(True)
+        self.intro.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.intro.setOpenExternalLinks(True)
+        self.intro.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.intro.setOpenExternalLinks(True)
         self.text = QtWidgets.QTextEdit()
         self.text.setReadOnly(True)
         self.chk = QtWidgets.QCheckBox()
@@ -801,6 +858,7 @@ class ConfigPage(QtWidgets.QWizardPage):
         self.form.addRow(s["config_model"], self.model_edit)
         self.form.addRow(s["config_api"], self.api_edit)
         self.form.addRow(s["config_key"], self.key_edit)
+        self.key_edit.setPlaceholderText(s["config_key_placeholder"])
 
         self.purchase_btn.setText(s["purchase_button"])
         self.purchase_btn.setToolTip(s["purchase_hint"])
@@ -836,12 +894,16 @@ class ConfigPage(QtWidgets.QWizardPage):
 
     def verify(self):
         s = self.wizard.strings
+        api_key = self.key_edit.text().strip()
+        if not api_key:
+            self.status.setText(s["verify_success"])
+            return True
         self.status.setText(s["verifying"])
         QtWidgets.QApplication.processEvents()
         ok, msg = verify_api_settings(
             self.model_edit.text().strip(),
             self.api_edit.text().strip(),
-            self.key_edit.text().strip(),
+            api_key,
         )
         if ok:
             self.status.setText(msg or s["verify_success"])
@@ -861,6 +923,84 @@ class ConfigPage(QtWidgets.QWizardPage):
         if self.skip:
             return True
         return self.verify()
+
+class DelayPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.intro = QtWidgets.QLabel()
+        self.intro.setWordWrap(True)
+        self.intro.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.intro.setOpenExternalLinks(True)
+        self.spin = QtWidgets.QSpinBox()
+        self.spin.setRange(0, 60000)
+        self.spin.setSuffix(" ms")
+        self.form = QtWidgets.QFormLayout()
+        self.form.addRow("", self.spin)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.intro)
+        layout.addLayout(self.form)
+        self.setLayout(layout)
+
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["delay_title"])
+        self.intro.setText(s["delay_intro"])
+        self.form.setItem(0, QtWidgets.QFormLayout.ItemRole.LabelRole, QtWidgets.QLabel(s["delay_label"]))
+        self.spin.setValue(self.wizard.delay_ms)
+        set_button_texts_for(self.wizard)
+
+    def validatePage(self):
+        self.wizard.delay_ms = self.spin.value()
+        return True
+
+class RetryPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.intro = QtWidgets.QLabel()
+        self.intro.setWordWrap(True)
+        self.combo = QtWidgets.QComboBox()
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.intro)
+        layout.addWidget(self.combo)
+        self.setLayout(layout)
+
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["retry_title"])
+        self.intro.setText(s["retry_intro"])
+        self.combo.clear()
+        self.combo.addItem(s["retry_off"], 0)
+        self.combo.addItem(s["retry_once"], 1)
+        self.combo.addItem(s["retry_until"], 2)
+        self.combo.addItem(s["retry_until_delay"], 3)
+        self.combo.setCurrentIndex(self.wizard.retry_mode)
+        set_button_texts_for(self.wizard)
+
+    def validatePage(self):
+        self.wizard.retry_mode = self.combo.currentIndex()
+        return True
+
+class DebugPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.checkbox = QtWidgets.QCheckBox()
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.checkbox)
+        self.setLayout(layout)
+
+    def initializePage(self):
+        s = self.wizard.strings
+        self.setTitle(s["debug_title"])
+        self.checkbox.setText(s["debug_label"])
+        self.checkbox.setChecked(self.wizard.debug_mode)
+        set_button_texts_for(self.wizard)
+
+    def validatePage(self):
+        self.wizard.debug_mode = self.checkbox.isChecked()
+        return True
 
 class ProgressPage(QtWidgets.QWizardPage):
     class UIProxy(QtCore.QObject):
@@ -898,6 +1038,9 @@ class ProgressPage(QtWidgets.QWizardPage):
             self.wizard.api_key,
             self.wizard.model,
             self.wizard.api_base,
+            self.wizard.delay_ms,
+            self.wizard.retry_mode,
+            self.wizard.debug_mode,
         )
         self.thread.progress.connect(self.append_text)
         self.thread.ask_file_exists.connect(self.on_ask_file_exists)
@@ -976,8 +1119,11 @@ class InstallerWizard(QtWidgets.QWizard):
         self.install_dir = ''
         self.version = ''
         self.api_key = ''
-        self.model = API_PROVIDERS["gpt-4o"]["model"]
-        self.api_base = API_PROVIDERS["gpt-4o"]["api_base"]
+        self.model = API_PROVIDERS["gpt-5-nano"]["model"]
+        self.api_base = API_PROVIDERS["gpt-5-nano"]["api_base"]
+        self.delay_ms = 0
+        self.retry_mode = 0
+        self.debug_mode = False
 
         self.setWizardStyle(QtWidgets.QWizard.WizardStyle.ModernStyle)
         set_wizard_button_texts(self)
@@ -988,6 +1134,9 @@ class InstallerWizard(QtWidgets.QWizard):
         self.addPage(DirectoryPage(self))
         self.addPage(VersionPage(self))
         self.addPage(ConfigPage(self))
+        self.addPage(DelayPage(self))
+        self.addPage(RetryPage(self))
+        self.addPage(DebugPage(self))
         self.addPage(ProgressPage(self))
         self.addPage(FinishPage(self))
 
