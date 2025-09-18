@@ -474,8 +474,15 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         i--;
     }
 
-    if (subtitleHistory.length() > 1000) {
-        subtitleHistory.removeAt(0);
+    // Context management
+    int maxHistoryLength = int((maxTokens - 1000) / 16);
+    if (maxHistoryLength > 1024) {
+        maxHistoryLength = 1024;
+    }
+    if (subtitleHistory.length() > maxHistoryLength) {
+        while (subtitleHistory.length() > (maxHistoryLength - 64)) {
+            subtitleHistory.removeAt(0);
+        }
     }
 
     string systemMsg =
@@ -486,19 +493,19 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 
         "Rules:\n"
         "1. Output the translation only."
-        "2. Do NOT output explanations, comments, or formatting."
-        "3. Do NOT use any special characters.";
+        "2. Do NOT output extra comments or explanations."
+        "3. Do NOT use any special characters or formatting in the translation.";
 
     string userMsg =
-        "Translate the content under the section 'Subtitle to translate' based on the section 'Subtitle context' if it exists.\n\n"
+        "Translate the complete content under the section 'Subtitle to translate' based on the section 'Subtitle context', if it exists.\n\n"
         "Source language: " + (SrcLang == "" ? "Auto Detect" : SrcLang) + "\n"
         "Target language: " + DstLang + "\n\n";
 
     if (context != "") {
-        userMsg += "Subtitle context(DO NOT OUTPUT!):\n" + "{" + context + "}\n\n";
+        userMsg += "[Subtitle context](DO NOT OUTPUT!):\n" + "{" + context + "}\n\n";
     }
 
-    userMsg += "Subtitle to translate:\n" + "{" + Text + "}";
+    userMsg += "[Subtitle to translate]:\n" + "{" + Text + "}";
 
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
