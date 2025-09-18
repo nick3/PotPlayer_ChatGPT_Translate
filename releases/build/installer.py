@@ -15,7 +15,7 @@ from openai import OpenAI
 import win32com.client
 from PyQt6 import QtWidgets, QtCore, QtGui
 
-PLUGIN_VERSION = "1.6"
+PLUGIN_VERSION = "1.7"
 
 # ========= Per-model provider dict (model → api_base ROOT & purchase link) =========
 # 重要：api_base 统一为“根路径”（例如 https://api.openai.com/v1），不要带 /chat/completions
@@ -128,6 +128,10 @@ LANGUAGE_STRINGS = {
         "context_trunc_label": "When the budget is exceeded:",
         "context_trunc_drop_oldest": "Drop the oldest subtitles (recommended)",
         "context_trunc_smart_trim": "Smart trim the oldest subtitle to fit the remaining budget",
+        "context_cache_label": "Context caching:",
+        "context_cache_auto": "Auto (use caching when supported, fallback to chat)",
+        "context_cache_off": "Off (always use chat completions)",
+        "context_cache_hint": "Uses the Responses endpoint to cache repeated instructions and context. Leave on Auto unless your provider does not support it.",
         "installing_variant": "Installing variant: {}",
 
         "config_title": "Verify / Configure API Settings",
@@ -236,6 +240,10 @@ LANGUAGE_STRINGS = {
         "context_trunc_label": "超过预算时：",
         "context_trunc_drop_oldest": "丢弃最早的字幕（推荐）",
         "context_trunc_smart_trim": "智能截取最早的字幕以适配剩余预算",
+        "context_cache_label": "上下文缓存：",
+        "context_cache_auto": "自动（支持时启用，不支持则回退到 chat）",
+        "context_cache_off": "关闭（始终使用 chat 请求）",
+        "context_cache_hint": "通过 Responses 端点缓存重复的提示与上下文，降低成本。除非服务不支持 Responses，建议保持自动模式。",
         "installing_variant": "正在安装版本：{}",
 
         "config_title": "验证 / 配置 API 设置",
@@ -460,7 +468,8 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key):
         f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key}" /f\n')
         f.write("\nexit\n")
 
-def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, debug_mode, context_budget=None, context_truncation=None):
+def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, debug_mode,
+                    context_budget=None, context_truncation=None, context_cache_mode=None):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = f.read()
@@ -473,6 +482,10 @@ def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, d
             data = re.sub(r'pre_context_token_budget\s*=\s*".*?"', f'pre_context_token_budget = "{context_budget}"', data)
         if context_truncation is not None:
             data = re.sub(r'pre_context_truncation_mode\s*=\s*".*?"', f'pre_context_truncation_mode = "{context_truncation}"', data)
+        if context_cache_mode is not None:
+            cache_value = str(context_cache_mode)
+            data = re.sub(r'pre_context_cache_mode\s*=\s*".*?"',
+                          f'pre_context_cache_mode = "{cache_value}"', data)
         if debug_mode and "HostOpenConsole();" not in data:
             idx = data.find("*/")
             if idx != -1:
@@ -551,7 +564,7 @@ class InstallThread(QtCore.QThread):
         self._loop = None
         return ans
 
-    def __init__(self, install_dir, versions, script_dir, language, api_key, model, api_base, delay_ms, retry_mode, debug_mode, context_budget, context_truncation):
+    def __init__(self, install_dir, versions, script_dir, language, api_key, model, api_base, delay_ms, retry_mode, debug_mode, context_budget, context_truncation, context_cache_mode):
         super().__init__()
         self.install_dir = install_dir
         self.versions = list(versions) if versions else []
@@ -565,6 +578,7 @@ class InstallThread(QtCore.QThread):
         self.debug_mode = debug_mode
         self.context_budget = context_budget
         self.context_truncation = context_truncation
+        self.context_cache_mode = context_cache_mode
         self.files_installed = []
         self._loop = None
         self._answer = None
@@ -614,7 +628,8 @@ class InstallThread(QtCore.QThread):
                     if dest_name.lower().endswith(".as"):
                         apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
                                         str(self.context_budget) if variant == "with_context" else None,
-                                        self.context_truncation if variant == "with_context" else None)
+                                        self.context_truncation if variant == "with_context" else None,
+                                        self.context_cache_mode if variant == "with_context" else None)
                     self.progress.emit(f"Installed {dest_name} (Overwritten).")
                     self.files_installed.append(dest_path)
                     files_for_variant.append(dest_path)
@@ -643,7 +658,8 @@ class InstallThread(QtCore.QThread):
                         if new_name.lower().endswith(".as"):
                             apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
                                             str(self.context_budget) if variant == "with_context" else None,
-                                            self.context_truncation if variant == "with_context" else None)
+                                            self.context_truncation if variant == "with_context" else None,
+                                            self.context_cache_mode if variant == "with_context" else None)
                         self.progress.emit(f"Installed {new_name}.")
                         self.files_installed.append(new_dest_path)
                         files_for_variant.append(new_dest_path)
@@ -655,7 +671,8 @@ class InstallThread(QtCore.QThread):
                 if dest_name.lower().endswith(".as"):
                     apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
                                     str(self.context_budget) if variant == "with_context" else None,
-                                    self.context_truncation if variant == "with_context" else None)
+                                    self.context_truncation if variant == "with_context" else None,
+                                    self.context_cache_mode if variant == "with_context" else None)
                 self.progress.emit(f"Installed {dest_name}.")
                 self.files_installed.append(dest_path)
                 files_for_variant.append(dest_path)
@@ -1063,13 +1080,19 @@ class ContextPage(QtWidgets.QWizardPage):
         self.length_hint.setWordWrap(True)
         self.trunc_label = QtWidgets.QLabel()
         self.trunc_combo = QtWidgets.QComboBox()
+        self.cache_label = QtWidgets.QLabel()
+        self.cache_combo = QtWidgets.QComboBox()
+        self.cache_hint = QtWidgets.QLabel()
+        self.cache_hint.setWordWrap(True)
         form = QtWidgets.QFormLayout()
         form.addRow(self.length_label, self.length_spin)
         form.addRow(self.trunc_label, self.trunc_combo)
+        form.addRow(self.cache_label, self.cache_combo)
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.intro)
         layout.addLayout(form)
         layout.addWidget(self.length_hint)
+        layout.addWidget(self.cache_hint)
         self.setLayout(layout)
 
     def initializePage(self):
@@ -1099,6 +1122,17 @@ class ContextPage(QtWidgets.QWizardPage):
             self.trunc_combo.setCurrentIndex(index)
         else:
             self.trunc_combo.setCurrentIndex(0)
+        self.cache_label.setText(s["context_cache_label"])
+        self.cache_combo.clear()
+        self.cache_combo.addItem(s["context_cache_auto"], "auto")
+        self.cache_combo.addItem(s["context_cache_off"], "off")
+        cache_mode = getattr(self.wizard, "context_cache_mode", "auto") or "auto"
+        cache_index = self.cache_combo.findData(cache_mode)
+        if cache_index != -1:
+            self.cache_combo.setCurrentIndex(cache_index)
+        else:
+            self.cache_combo.setCurrentIndex(0)
+        self.cache_hint.setText(s["context_cache_hint"])
 
     def validatePage(self):
         if not self.wizard.has_context_variant:
@@ -1107,6 +1141,9 @@ class ContextPage(QtWidgets.QWizardPage):
         data = self.trunc_combo.currentData()
         if data:
             self.wizard.context_truncation_mode = data
+        cache_data = self.cache_combo.currentData()
+        if cache_data:
+            self.wizard.context_cache_mode = cache_data
         return True
 
 class DebugPage(QtWidgets.QWizardPage):
@@ -1170,6 +1207,7 @@ class ProgressPage(QtWidgets.QWizardPage):
             self.wizard.debug_mode,
             self.wizard.context_token_budget,
             self.wizard.context_truncation_mode,
+            self.wizard.context_cache_mode,
         )
         self.thread.progress.connect(self.append_text)
         self.thread.ask_file_exists.connect(self.on_ask_file_exists)
@@ -1255,6 +1293,7 @@ class InstallerWizard(QtWidgets.QWizard):
         self.debug_mode = False
         self.context_token_budget = 6000
         self.context_truncation_mode = "drop_oldest"
+        self.context_cache_mode = "auto"
         self.has_context_variant = True
 
         self.setWizardStyle(QtWidgets.QWizard.WizardStyle.ModernStyle)
