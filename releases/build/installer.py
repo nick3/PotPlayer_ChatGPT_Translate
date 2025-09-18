@@ -108,13 +108,27 @@ LANGUAGE_STRINGS = {
         "not_detected": "No PotPlayer Translate path was detected. Please choose the folder manually.",
 
         "choose_version_title": "Choose Plugin Variant",
-        "choose_version": "Choose the version to install:",
+        "choose_version": "Select the plugin variants to install (you can choose one or both):",
         "with_context": "Installer with Context Handling (recommended)",
         "without_context": "Installer without Context Handling",
         "with_context_description": "Advanced context-aware processing for better accuracy (higher API usage).",
         "without_context_description": "Lightweight mode without context for lower API usage (faster/cheaper).",
         "version_explain": "Explanation:\n- With Context: sends surrounding subtitle context to the model to improve translation.\n"
-                           "- Without Context: translates lines independently; cheaper and faster but less coherent across lines.",
+                           "- Without Context: translates lines independently; cheaper and faster but less coherent across lines.\n"
+                           "You can install both variants and switch them in PotPlayer at any time.",
+        "version_select_warning": "Please choose at least one variant to continue.",
+        "with_context_short": "With context",
+        "without_context_short": "Without context",
+        "context_title": "Context Handling Settings",
+        "context_intro": "Configure how much subtitle history is sent when using the context-aware plugin. 0 = automatic based on the selected model.",
+        "context_length_label": "Context budget:",
+        "context_length_suffix": "tokens",
+        "context_length_auto": "Auto (model-based)",
+        "context_length_hint": "This limits the approximate number of tokens reserved for previous subtitles. Higher values improve consistency but use more quota.",
+        "context_trunc_label": "When the budget is exceeded:",
+        "context_trunc_drop_oldest": "Drop the oldest subtitles (recommended)",
+        "context_trunc_smart_trim": "Smart trim the oldest subtitle to fit the remaining budget",
+        "installing_variant": "Installing variant: {}",
 
         "config_title": "Verify / Configure API Settings",
         "config_intro": "Provide API settings. Each preset model carries its own default API URL and billing page.\n" 
@@ -202,13 +216,27 @@ LANGUAGE_STRINGS = {
         "not_detected": "未检测到 PotPlayer Translate 路径，请手动选择。",
 
         "choose_version_title": "选择插件版本",
-        "choose_version": "请选择要安装的版本：",
+        "choose_version": "请选择要安装的版本（可多选）：",
         "with_context": "带上下文处理（推荐）",
         "without_context": "不带上下文处理",
         "with_context_description": "高级上下文处理，翻译更准确（API 消耗更高）。",
         "without_context_description": "轻量模式，不带上下文（更快/更省），但跨行连贯性较弱。",
         "version_explain": "解释：\n- 带上下文：会向模型发送相邻字幕的上下文，提升准确度与一致性；\n"
-                           "- 不带上下文：逐行翻译，成本更低但跨行一致性较弱。",
+                           "- 不带上下文：逐行翻译，成本更低但跨行一致性较弱。\n"
+                           "你可以同时安装两个版本，并在 PotPlayer 中切换使用。",
+        "version_select_warning": "请至少选择一个版本再继续。",
+        "with_context_short": "带上下文",
+        "without_context_short": "不带上下文",
+        "context_title": "上下文设置",
+        "context_intro": "配置安装带上下文插件时发送的历史字幕长度。0 表示根据模型自动计算。",
+        "context_length_label": "上下文预算：",
+        "context_length_suffix": "标记",
+        "context_length_auto": "自动（按模型）",
+        "context_length_hint": "该值限制用于历史字幕的大致标记数。数值越大连贯性越好，但消耗的额度也会增加。",
+        "context_trunc_label": "超过预算时：",
+        "context_trunc_drop_oldest": "丢弃最早的字幕（推荐）",
+        "context_trunc_smart_trim": "智能截取最早的字幕以适配剩余预算",
+        "installing_variant": "正在安装版本：{}",
 
         "config_title": "验证 / 配置 API 设置",
         "config_intro": "在此提供 API 设置。每个预设模型包含默认的 API 地址与充值页面。\n" 
@@ -432,7 +460,7 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key):
         f.write(f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{reg_key}" /f\n')
         f.write("\nexit\n")
 
-def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, debug_mode):
+def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, debug_mode, context_budget=None, context_truncation=None):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = f.read()
@@ -441,6 +469,10 @@ def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, d
         data = re.sub(r'pre_apiUrl\s*=\s*".*?"', f'pre_apiUrl = "{api_base}"', data)
         data = re.sub(r'pre_delay_ms\s*=\s*".*?"', f'pre_delay_ms = "{delay_ms}"', data)
         data = re.sub(r'pre_retry_mode\s*=\s*".*?"', f'pre_retry_mode = "{retry_mode}"', data)
+        if context_budget is not None:
+            data = re.sub(r'pre_context_token_budget\s*=\s*".*?"', f'pre_context_token_budget = "{context_budget}"', data)
+        if context_truncation is not None:
+            data = re.sub(r'pre_context_truncation_mode\s*=\s*".*?"', f'pre_context_truncation_mode = "{context_truncation}"', data)
         if debug_mode and "HostOpenConsole();" not in data:
             idx = data.find("*/")
             if idx != -1:
@@ -519,10 +551,10 @@ class InstallThread(QtCore.QThread):
         self._loop = None
         return ans
 
-    def __init__(self, install_dir, version, script_dir, language, api_key, model, api_base, delay_ms, retry_mode, debug_mode):
+    def __init__(self, install_dir, versions, script_dir, language, api_key, model, api_base, delay_ms, retry_mode, debug_mode, context_budget, context_truncation):
         super().__init__()
         self.install_dir = install_dir
-        self.version = version
+        self.versions = list(versions) if versions else []
         self.script_dir = script_dir
         self.language = language
         self.api_key = api_key
@@ -531,97 +563,120 @@ class InstallThread(QtCore.QThread):
         self.delay_ms = delay_ms
         self.retry_mode = retry_mode
         self.debug_mode = debug_mode
+        self.context_budget = context_budget
+        self.context_truncation = context_truncation
         self.files_installed = []
         self._loop = None
         self._answer = None
 
     def run(self):
         s = LANGUAGE_STRINGS[self.language]
-        context_type = self.version
-        key_name = reg_key_name(self.install_dir, context_type)
-        display_name = f"PotPlayer ChatGPT Translate v{PLUGIN_VERSION} [{'With context' if context_type=='with_context' else 'Without context'}]"
-        reginfo = find_existing_reg_info(self.install_dir, context_type)
-        reg_write = False
         try:
             ensure_dir_exists(self.install_dir)
-            for src_file, dest_name in OFFLINE_FILES.get(self.version, []):
-                src_path = os.path.join(self.script_dir, src_file)
-                dest_path = os.path.join(self.install_dir, dest_name)
-                self.progress.emit(f"Copying {src_file} ...")
-                if not os.path.exists(src_path):
-                    self.progress.emit(s["installation_failed"].format(f"Missing file {src_file}"))
-                    return
-                if os.path.exists(dest_path):
-                    choice = self._ask_main(self.ask_file_exists, s["app_title"], s["file_exists_3choice"].format(dest_name))
-                    if choice is None:
-                        self.progress.emit(merge_bilingual("installation_cancelled"))
-                        return
-                    elif choice == "overwrite":
-                        shutil.copy(src_path, dest_path)
-                        if dest_name.lower().endswith(".as"):
-                            apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode)
-                        self.progress.emit(f"Installed {dest_name} (Overwritten).")
-                        self.files_installed.append(dest_path)
-                        if reginfo:
-                            if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_upgrade"]):
-                                reg_write = True
-                        else:
-                            if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_write"]):
-                                reg_write = True
-                    elif choice == "rename":
-                        while True:
-                            new_name = self._ask_main(self.ask_text, s["app_title"], s["rename"])
-                            if new_name is None:
-                                self.progress.emit(merge_bilingual("installation_cancelled"))
-                                return
-                            new_name = new_name.strip()
-                            if not new_name:
-                                continue
-                            if not os.path.splitext(new_name)[1]:
-                                new_name += os.path.splitext(dest_name)[1]
-                            new_dest_path = os.path.join(self.install_dir, new_name)
-                            if os.path.exists(new_dest_path):
-                                _ = self._ask_main(self.ask_file_exists, s["app_title"], s["file_exists_3choice"].format(new_name))
-                                continue
-                            shutil.copy(src_path, new_dest_path)
-                            if new_name.lower().endswith(".as"):
-                                apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode)
-                            self.progress.emit(f"Installed {new_name}.")
-                            self.files_installed.append(new_dest_path)
-                            if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_new"]):
-                                reg_write = True
-                            break
-                else:
-                    shutil.copy(src_path, dest_path)
-                    if dest_name.lower().endswith(".as"):
-                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode)
-                    self.progress.emit(f"Installed {dest_name}.")
-                    self.files_installed.append(dest_path)
-                    if self._ask_main(self.ask_yesno, s["app_title"], s["ask_reg_new"]):
-                        reg_write = True
-
-            if reg_write:
-                tools_dir = os.path.join(self.install_dir, "tools")
-                ensure_dir_exists(tools_dir)
-                uninstaller_path = os.path.join(tools_dir, f"uninstaller_{key_name}.bat")
-                files_to_delete = list(self.files_installed)
-                files_to_delete.append(uninstaller_path)
-                generate_uninstaller(uninstaller_path, files_to_delete, key_name)
-                register_software(
-                    display_name=display_name,
-                    uninstall_path=uninstaller_path,
-                    install_dir=self.install_dir,
-                    key_name=key_name,
-                    version=PLUGIN_VERSION,
-                    context_type=context_type
-                )
-
+            if not self.versions:
+                self.progress.emit(s["installation_failed"].format("No variant selected"))
+                self.progress.emit("DONE")
+                return
+            for variant in self.versions:
+                self._install_variant(variant, s)
             self.progress.emit(LANGUAGE_STRINGS["en"]["installation_complete"] + "\n" +
                                LANGUAGE_STRINGS["zh"]["installation_complete"])
             self.progress.emit("DONE")
         except Exception as e:
             self.progress.emit(merge_bilingual("installation_failed").format(str(e)))
             return
+
+    def _install_variant(self, variant, strings):
+        files_for_variant = []
+        reg_write = False
+        context_type = variant
+        key_name = reg_key_name(self.install_dir, context_type)
+        variant_label = strings.get("with_context_short", "With context") if variant == "with_context" else strings.get("without_context_short", "Without context")
+        self.progress.emit(strings["installing_variant"].format(variant_label))
+        display_suffix = LANGUAGE_STRINGS["en"]["with_context_short"] if variant == "with_context" else LANGUAGE_STRINGS["en"]["without_context_short"]
+        display_name = f"PotPlayer ChatGPT Translate v{PLUGIN_VERSION} [{display_suffix}]"
+        reginfo = find_existing_reg_info(self.install_dir, context_type)
+
+        for src_file, dest_name in OFFLINE_FILES.get(variant, []):
+            src_path = os.path.join(self.script_dir, src_file)
+            dest_path = os.path.join(self.install_dir, dest_name)
+            self.progress.emit(f"Copying {src_file} ...")
+            if not os.path.exists(src_path):
+                self.progress.emit(strings["installation_failed"].format(f"Missing file {src_file}"))
+                return
+            if os.path.exists(dest_path):
+                choice = self._ask_main(self.ask_file_exists, strings["app_title"], strings["file_exists_3choice"].format(dest_name))
+                if choice is None:
+                    self.progress.emit(merge_bilingual("installation_cancelled"))
+                    return
+                elif choice == "overwrite":
+                    shutil.copy(src_path, dest_path)
+                    if dest_name.lower().endswith(".as"):
+                        apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
+                                        str(self.context_budget) if variant == "with_context" else None,
+                                        self.context_truncation if variant == "with_context" else None)
+                    self.progress.emit(f"Installed {dest_name} (Overwritten).")
+                    self.files_installed.append(dest_path)
+                    files_for_variant.append(dest_path)
+                    if reginfo:
+                        if self._ask_main(self.ask_yesno, strings["app_title"], strings["ask_reg_upgrade"]):
+                            reg_write = True
+                    else:
+                        if self._ask_main(self.ask_yesno, strings["app_title"], strings["ask_reg_write"]):
+                            reg_write = True
+                elif choice == "rename":
+                    while True:
+                        new_name = self._ask_main(self.ask_text, strings["app_title"], strings["rename"])
+                        if new_name is None:
+                            self.progress.emit(merge_bilingual("installation_cancelled"))
+                            return
+                        new_name = new_name.strip()
+                        if not new_name:
+                            continue
+                        if not os.path.splitext(new_name)[1]:
+                            new_name += os.path.splitext(dest_name)[1]
+                        new_dest_path = os.path.join(self.install_dir, new_name)
+                        if os.path.exists(new_dest_path):
+                            _ = self._ask_main(self.ask_file_exists, strings["app_title"], strings["file_exists_3choice"].format(new_name))
+                            continue
+                        shutil.copy(src_path, new_dest_path)
+                        if new_name.lower().endswith(".as"):
+                            apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
+                                            str(self.context_budget) if variant == "with_context" else None,
+                                            self.context_truncation if variant == "with_context" else None)
+                        self.progress.emit(f"Installed {new_name}.")
+                        self.files_installed.append(new_dest_path)
+                        files_for_variant.append(new_dest_path)
+                        if self._ask_main(self.ask_yesno, strings["app_title"], strings["ask_reg_new"]):
+                            reg_write = True
+                        break
+            else:
+                shutil.copy(src_path, dest_path)
+                if dest_name.lower().endswith(".as"):
+                    apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
+                                    str(self.context_budget) if variant == "with_context" else None,
+                                    self.context_truncation if variant == "with_context" else None)
+                self.progress.emit(f"Installed {dest_name}.")
+                self.files_installed.append(dest_path)
+                files_for_variant.append(dest_path)
+                if self._ask_main(self.ask_yesno, strings["app_title"], strings["ask_reg_new"]):
+                    reg_write = True
+
+        if reg_write:
+            tools_dir = os.path.join(self.install_dir, "tools")
+            ensure_dir_exists(tools_dir)
+            uninstaller_path = os.path.join(tools_dir, f"uninstaller_{key_name}.bat")
+            files_to_delete = list(files_for_variant)
+            files_to_delete.append(uninstaller_path)
+            generate_uninstaller(uninstaller_path, files_to_delete, key_name)
+            register_software(
+                display_name=display_name,
+                uninstall_path=uninstaller_path,
+                install_dir=self.install_dir,
+                key_name=key_name,
+                version=PLUGIN_VERSION,
+                context_type=context_type
+            )
 
 # ========= Wizard Pages & UI =========
 
@@ -764,8 +819,8 @@ class VersionPage(QtWidgets.QWizardPage):
         layout = QtWidgets.QVBoxLayout()
         self.prompt = QtWidgets.QLabel()
         self.prompt.setWordWrap(True)
-        self.rb1 = QtWidgets.QRadioButton()
-        self.rb2 = QtWidgets.QRadioButton()
+        self.cb_with = QtWidgets.QCheckBox()
+        self.cb_without = QtWidgets.QCheckBox()
         self.desc1 = QtWidgets.QLabel()
         self.desc1.setWordWrap(True)
         self.desc2 = QtWidgets.QLabel()
@@ -773,9 +828,9 @@ class VersionPage(QtWidgets.QWizardPage):
         self.explain = QtWidgets.QLabel()
         self.explain.setWordWrap(True)
         layout.addWidget(self.prompt)
-        layout.addWidget(self.rb1)
+        layout.addWidget(self.cb_with)
         layout.addWidget(self.desc1)
-        layout.addWidget(self.rb2)
+        layout.addWidget(self.cb_without)
         layout.addWidget(self.desc2)
         layout.addWidget(self.explain)
         self.setLayout(layout)
@@ -784,16 +839,28 @@ class VersionPage(QtWidgets.QWizardPage):
         s = self.wizard.strings
         self.setTitle(s["choose_version_title"])
         self.prompt.setText(s["choose_version"])
-        self.rb1.setText(s["with_context"])
-        self.rb2.setText(s["without_context"])
+        self.cb_with.setText(s["with_context"])
+        self.cb_without.setText(s["without_context"])
         self.desc1.setText(s["with_context_description"])
         self.desc2.setText(s["without_context_description"])
         self.explain.setText(s["version_explain"])
-        self.rb1.setChecked(True)
+        selections = set(self.wizard.versions)
+        self.cb_with.setChecked('with_context' in selections or not selections)
+        self.cb_without.setChecked('without_context' in selections)
         set_button_texts_for(self.wizard)
 
     def validatePage(self):
-        self.wizard.version = 'without_context' if self.rb2.isChecked() else 'with_context'
+        s = self.wizard.strings
+        selections = []
+        if self.cb_with.isChecked():
+            selections.append('with_context')
+        if self.cb_without.isChecked():
+            selections.append('without_context')
+        if not selections:
+            QtWidgets.QMessageBox.warning(self, s["app_title"], s["version_select_warning"])
+            return False
+        self.wizard.versions = selections
+        self.wizard.has_context_variant = ('with_context' in selections)
         return True
 
 class ConfigPage(QtWidgets.QWizardPage):
@@ -982,6 +1049,66 @@ class RetryPage(QtWidgets.QWizardPage):
         self.wizard.retry_mode = self.combo.currentIndex()
         return True
 
+class ContextPage(QtWidgets.QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.intro = QtWidgets.QLabel()
+        self.intro.setWordWrap(True)
+        self.length_label = QtWidgets.QLabel()
+        self.length_spin = QtWidgets.QSpinBox()
+        self.length_spin.setRange(0, 200000)
+        self.length_spin.setSingleStep(500)
+        self.length_hint = QtWidgets.QLabel()
+        self.length_hint.setWordWrap(True)
+        self.trunc_label = QtWidgets.QLabel()
+        self.trunc_combo = QtWidgets.QComboBox()
+        form = QtWidgets.QFormLayout()
+        form.addRow(self.length_label, self.length_spin)
+        form.addRow(self.trunc_label, self.trunc_combo)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.intro)
+        layout.addLayout(form)
+        layout.addWidget(self.length_hint)
+        self.setLayout(layout)
+
+    def initializePage(self):
+        s = self.wizard.strings
+        set_button_texts_for(self.wizard)
+        if not self.wizard.has_context_variant:
+            QtCore.QTimer.singleShot(0, self.wizard.next)
+            return
+        self.setTitle(s["context_title"])
+        self.intro.setText(s["context_intro"])
+        self.length_label.setText(s["context_length_label"])
+        suffix = s.get("context_length_suffix", "")
+        if suffix:
+            self.length_spin.setSuffix(f" {suffix}")
+        else:
+            self.length_spin.setSuffix("")
+        self.length_spin.setSpecialValueText(s.get("context_length_auto", "Auto"))
+        self.length_spin.setValue(int(self.wizard.context_token_budget))
+        self.length_hint.setText(s["context_length_hint"])
+        self.trunc_label.setText(s["context_trunc_label"])
+        self.trunc_combo.clear()
+        self.trunc_combo.addItem(s["context_trunc_drop_oldest"], "drop_oldest")
+        self.trunc_combo.addItem(s["context_trunc_smart_trim"], "smart_trim")
+        current_mode = self.wizard.context_truncation_mode or "drop_oldest"
+        index = self.trunc_combo.findData(current_mode)
+        if index != -1:
+            self.trunc_combo.setCurrentIndex(index)
+        else:
+            self.trunc_combo.setCurrentIndex(0)
+
+    def validatePage(self):
+        if not self.wizard.has_context_variant:
+            return True
+        self.wizard.context_token_budget = self.length_spin.value()
+        data = self.trunc_combo.currentData()
+        if data:
+            self.wizard.context_truncation_mode = data
+        return True
+
 class DebugPage(QtWidgets.QWizardPage):
     def __init__(self, wizard):
         super().__init__()
@@ -1032,7 +1159,7 @@ class ProgressPage(QtWidgets.QWizardPage):
         self.text.clear()
         self.thread = InstallThread(
             self.wizard.install_dir,
-            self.wizard.version,
+            self.wizard.versions,
             os.path.dirname(os.path.abspath(__file__)),
             self.wizard.language,
             self.wizard.api_key,
@@ -1041,6 +1168,8 @@ class ProgressPage(QtWidgets.QWizardPage):
             self.wizard.delay_ms,
             self.wizard.retry_mode,
             self.wizard.debug_mode,
+            self.wizard.context_token_budget,
+            self.wizard.context_truncation_mode,
         )
         self.thread.progress.connect(self.append_text)
         self.thread.ask_file_exists.connect(self.on_ask_file_exists)
@@ -1117,13 +1246,16 @@ class InstallerWizard(QtWidgets.QWizard):
         self.language = 'en'
         self.strings = LANGUAGE_STRINGS[self.language]
         self.install_dir = ''
-        self.version = ''
+        self.versions = ['with_context']
         self.api_key = ''
         self.model = API_PROVIDERS["gpt-5-nano"]["model"]
         self.api_base = API_PROVIDERS["gpt-5-nano"]["api_base"]
         self.delay_ms = 0
         self.retry_mode = 0
         self.debug_mode = False
+        self.context_token_budget = 6000
+        self.context_truncation_mode = "drop_oldest"
+        self.has_context_variant = True
 
         self.setWizardStyle(QtWidgets.QWizard.WizardStyle.ModernStyle)
         set_wizard_button_texts(self)
@@ -1136,6 +1268,7 @@ class InstallerWizard(QtWidgets.QWizard):
         self.addPage(ConfigPage(self))
         self.addPage(DelayPage(self))
         self.addPage(RetryPage(self))
+        self.addPage(ContextPage(self))
         self.addPage(DebugPage(self))
         self.addPage(ProgressPage(self))
         self.addPage(FinishPage(self))

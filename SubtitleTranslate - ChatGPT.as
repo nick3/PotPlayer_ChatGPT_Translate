@@ -57,12 +57,16 @@ string pre_selected_model = "gpt-5-nano"; // will be replaced during installatio
 string pre_apiUrl = "https://api.openai.com/v1/chat/completions"; // will be replaced during installation
 string pre_delay_ms = "0"; // will be replaced during installation
 string pre_retry_mode = "0"; // will be replaced during installation
+string pre_context_token_budget = "6000"; // approx. tokens reserved for context (0 = auto)
+string pre_context_truncation_mode = "drop_oldest"; // drop_oldest | smart_trim
 
 string api_key = pre_api_key;
 string selected_model = pre_selected_model; // Default model
 string apiUrl = pre_apiUrl; // Default API URL
 string delay_ms = pre_delay_ms; // Request delay in ms
 string retry_mode = pre_retry_mode; // Auto retry mode
+string context_token_budget = pre_context_token_budget; // Approximate token budget for context
+string context_truncation_mode = pre_context_truncation_mode; // Truncation mode when context exceeds budget
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 array<string> subtitleHistory;  // Global subtitle history
 
@@ -85,6 +89,8 @@ void RefreshConfiguration() {
     apiUrl = LoadInstallerConfig("gpt_apiUrl", pre_apiUrl);
     delay_ms = LoadInstallerConfig("gpt_delay_ms", pre_delay_ms);
     retry_mode = LoadInstallerConfig("gpt_retry_mode", pre_retry_mode);
+    context_token_budget = LoadInstallerConfig("gpt_context_token_budget", pre_context_token_budget);
+    context_truncation_mode = LoadInstallerConfig("gpt_context_truncation_mode", pre_context_truncation_mode);
 }
 
 // Supported Language List
@@ -227,6 +233,22 @@ int ParseInt(const string &in s) {
         v = v * 10 + (c - 48);
     }
     return v;
+}
+
+bool EqualsIgnoreCase(const string &in a, const string &in b) {
+    if (a.length() != b.length())
+        return false;
+    for (uint i = 0; i < a.length(); i++) {
+        uint8 ca = a[i];
+        uint8 cb = b[i];
+        if (ca >= 65 && ca <= 90)
+            ca += 32;
+        if (cb >= 65 && cb <= 90)
+            cb += 32;
+        if (ca != cb)
+            return false;
+    }
+    return true;
 }
 
 // API Key and API Base verification process
@@ -401,11 +423,15 @@ void ServerLogout() {
     apiUrl = pre_apiUrl;
     delay_ms = pre_delay_ms;
     retry_mode = pre_retry_mode;
+    context_token_budget = pre_context_token_budget;
+    context_truncation_mode = pre_context_truncation_mode;
     HostSaveString("gpt_api_key", "");
     HostSaveString("gpt_selected_model", selected_model);
     HostSaveString("gpt_apiUrl", apiUrl);
     HostSaveString("gpt_delay_ms", delay_ms);
     HostSaveString("gpt_retry_mode", retry_mode);
+    HostSaveString("gpt_context_token_budget", context_token_budget);
+    HostSaveString("gpt_context_truncation_mode", context_truncation_mode);
     HostPrintUTF8("Successfully logged out.\n");
 }
 
@@ -428,16 +454,166 @@ int EstimateTokenCount(const string &in text) {
 
 // Function to get the model's maximum context length
 int GetModelMaxTokens(const string &in modelName) {
-    if (modelName == "gpt-3.5-turbo")
+    string trimmedModel = modelName.Trim();
+    if (trimmedModel == "")
         return 4096;
-    else if (modelName == "gpt-3.5-turbo-16k")
+
+    // Known model prefixes mapped to approximate maximum context length (tokens).
+    array<string> knownContexts = {
+        "gpt-5-nano", "128000",
+        "gpt-5-mini", "128000",
+        "gpt-5", "200000",
+        "gpt-4.1-nano", "128000",
+        "gpt-4.1-mini", "128000",
+        "gpt-4.1-realtime", "128000",
+        "gpt-4.1-preview", "128000",
+        "gpt-4.1", "128000",
+        "gpt-4o-mini-translate", "128000",
+        "gpt-4o-mini-transcribe", "128000",
+        "gpt-4o-mini-audio", "128000",
+        "gpt-4o-mini", "128000",
+        "gpt-4o-realtime-preview", "128000",
+        "gpt-4o-realtime", "128000",
+        "gpt-4o-audio-preview", "128000",
+        "gpt-4o", "128000",
+        "gpt-4-turbo-preview", "128000",
+        "gpt-4-turbo", "128000",
+        "gpt-3.5-turbo-16k", "16384",
+        "gpt-3.5-turbo", "4096",
+        "o4-mini", "64000",
+        "o3-mini", "64000",
+        "o1-preview", "128000",
+        "o1-mini", "64000",
+        "o1", "128000",
+        "glm-4-plus", "128000",
+        "glm-4-air", "128000",
+        "glm-4", "128000",
+        "glm-3", "32000",
+        "claude-3.5-sonnet", "200000",
+        "claude-3.5-haiku", "200000",
+        "claude-3-opus", "200000",
+        "claude-3-sonnet", "200000",
+        "claude-3-haiku", "200000",
+        "claude-2.1", "200000",
+        "gemini-1.5-pro", "1000000",
+        "gemini-1.5-flash-8b", "1000000",
+        "gemini-1.5-flash", "1000000",
+        "gemini-1.0-pro", "32000",
+        "gemini-1.0", "32000",
+        "gemini-pro", "32000",
+        "deepseek-r1", "131072",
+        "deepseek-chat", "131072",
+        "deepseek-v3", "131072",
+        "qwen2.5", "131072",
+        "qwen2", "131072",
+        "qwen1.5", "65536",
+        "qwen", "32768",
+        "yi-1.5", "131072",
+        "yi-large", "131072",
+        "yi-34b", "131072",
+        "yi-9b", "65536",
+        "llama-3.2", "128000",
+        "llama-3.1-405b", "128000",
+        "llama-3.1-70b", "128000",
+        "llama-3.1-8b", "128000",
+        "llama-3.1", "128000",
+        "llama-3-70b", "8192",
+        "llama-3-8b", "8192",
+        "llama-2", "4096",
+        "mixtral-8x22b", "65536",
+        "mixtral-8x7b", "32768",
+        "mistral-large", "32000",
+        "mistral-medium", "32000",
+        "mistral-small", "16000",
+        "phi-3.5", "128000",
+        "phi-3", "128000",
+        "grok-2", "131072",
+        "grok-1.5", "131072"
+    };
+    for (uint i = 0; i + 1 < knownContexts.length(); i += 2) {
+        string pattern = knownContexts[i];
+        if (trimmedModel.length() >= pattern.length() && trimmedModel.substr(0, pattern.length()) == pattern)
+            return ParseInt(knownContexts[i + 1]);
+    }
+
+    if (trimmedModel.find("1000k") != -1 || trimmedModel.find("1m") != -1)
+        return 1000000;
+    if (trimmedModel.find("512k") != -1)
+        return 524288;
+    if (trimmedModel.find("320k") != -1)
+        return 320000;
+    if (trimmedModel.find("256k") != -1)
+        return 256000;
+    if (trimmedModel.find("200k") != -1)
+        return 200000;
+    if (trimmedModel.find("160k") != -1)
+        return 160000;
+    if (trimmedModel.find("131k") != -1 || trimmedModel.find("130k") != -1)
+        return 131072;
+    if (trimmedModel.find("128k") != -1)
+        return 128000;
+    if (trimmedModel.find("100k") != -1)
+        return 100000;
+    if (trimmedModel.find("80k") != -1)
+        return 80000;
+    if (trimmedModel.find("65k") != -1)
+        return 65000;
+    if (trimmedModel.find("64k") != -1)
+        return 64000;
+    if (trimmedModel.find("40k") != -1)
+        return 40000;
+    if (trimmedModel.find("32k") != -1)
+        return 32768;
+    if (trimmedModel.find("16k") != -1)
         return 16384;
-    else if (modelName == "gpt-4o")
-        return 128000;
-    else if (modelName == "gpt-5-nano")
-        return 128000;
-    else
+    if (trimmedModel.find("8k") != -1)
+        return 8192;
+    if (trimmedModel.find("4k") != -1)
         return 4096;
+
+    if (trimmedModel.find("flash") != -1)
+        return 1000000;
+    if (trimmedModel.find("deepseek") != -1)
+        return 131072;
+    if (trimmedModel.find("grok") != -1)
+        return 131072;
+    if (trimmedModel.find("yi") != -1)
+        return 131072;
+    if (trimmedModel.find("phi-3") != -1)
+        return 128000;
+    if (trimmedModel.find("phi") != -1)
+        return 8192;
+    if (trimmedModel.find("llama-3.2") != -1 || trimmedModel.find("llama-3.1") != -1)
+        return 128000;
+    if (trimmedModel.find("llama-3") != -1)
+        return 8192;
+    if (trimmedModel.find("llama-2") != -1)
+        return 4096;
+    if (trimmedModel.find("claude") != -1)
+        return 200000;
+    if (trimmedModel.find("gemini") != -1)
+        return 32000;
+
+    if (trimmedModel.find("nano") != -1)
+        return 128000;
+    if (trimmedModel.find("mini") != -1)
+        return 64000;
+    if (trimmedModel.find("sonnet") != -1)
+        return 200000;
+    if (trimmedModel.find("haiku") != -1)
+        return 128000;
+    if (trimmedModel.find("opus") != -1)
+        return 200000;
+    if (trimmedModel.find("qwen") != -1)
+        return 32768;
+    if (trimmedModel.find("glm") != -1)
+        return 128000;
+    if (trimmedModel.find("mistral") != -1)
+        return 32000;
+    if (trimmedModel.find("mixtral") != -1)
+        return 65536;
+
+    return 4096;
 }
 
 // Translation Function
@@ -461,26 +637,82 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     subtitleHistory.insertLast(Text);
 
     int maxTokens = GetModelMaxTokens(selected_model);
-    string context = "";
-    int tokenCount = EstimateTokenCount(Text);
-    int i = int(subtitleHistory.length()) - 2;
-    while (i >= 0 && tokenCount < (maxTokens - 1000)) {
-        string subtitle = subtitleHistory[i];
+    int safeBudget = maxTokens - 1000;
+    if (safeBudget < 0)
+        safeBudget = maxTokens;
+    if (safeBudget < 0)
+        safeBudget = 0;
+
+    int configuredBudget = ParseInt(context_token_budget);
+    if (configuredBudget <= 0 || configuredBudget > safeBudget)
+        configuredBudget = safeBudget;
+
+    string truncMode = context_truncation_mode;
+    bool useSmartTrim = EqualsIgnoreCase(truncMode, "smart_trim");
+
+    int currentTokens = EstimateTokenCount(Text);
+    if (currentTokens < 0)
+        currentTokens = 0;
+    int availableForContext = safeBudget - currentTokens;
+    if (availableForContext < 0)
+        availableForContext = 0;
+    if (availableForContext > configuredBudget)
+        availableForContext = configuredBudget;
+
+    array<string> contextSegments;
+    int usedContextTokens = 0;
+    int idx = int(subtitleHistory.length()) - 2;
+    while (idx >= 0 && usedContextTokens < availableForContext) {
+        string subtitle = subtitleHistory[idx];
         int subtitleTokens = EstimateTokenCount(subtitle);
-        tokenCount += subtitleTokens;
-        if (tokenCount < (maxTokens - 1000)) {
-            context = subtitle + "\n" + context;
+        if (subtitleTokens <= 0) {
+            idx--;
+            continue;
         }
-        i--;
+        if (usedContextTokens + subtitleTokens <= availableForContext) {
+            contextSegments.insertAt(0, subtitle);
+            usedContextTokens += subtitleTokens;
+        } else if (useSmartTrim) {
+            int remainingTokens = availableForContext - usedContextTokens;
+            if (remainingTokens > 0) {
+                int charBudget = remainingTokens * 4;
+                int subtitleLength = int(subtitle.length());
+                if (charBudget < subtitleLength)
+                    subtitle = subtitle.substr(subtitleLength - charBudget, charBudget);
+                contextSegments.insertAt(0, subtitle);
+            }
+            usedContextTokens = availableForContext;
+            break;
+        } else {
+            break;
+        }
+        idx--;
     }
 
-    // Context management
-    int maxHistoryLength = int((maxTokens - 1000) / 16);
-    if (maxHistoryLength > 1024) {
-        maxHistoryLength = 1024;
+    string context = "";
+    for (uint ctxIndex = 0; ctxIndex < contextSegments.length(); ctxIndex++) {
+        if (ctxIndex > 0)
+            context += "\n";
+        context += contextSegments[ctxIndex];
     }
-    if (subtitleHistory.length() > maxHistoryLength) {
-        while (subtitleHistory.length() > (maxHistoryLength - 64)) {
+
+    int historyBudget = configuredBudget;
+    if (historyBudget <= 0)
+        historyBudget = safeBudget;
+    if (historyBudget < 0)
+        historyBudget = 0;
+    int historyTarget = historyBudget > 0 ? int(historyBudget / 16) : 0;
+    if (historyTarget < 96)
+        historyTarget = 96;
+    if (historyTarget > 2048)
+        historyTarget = 2048;
+    int shrinkTarget = historyTarget - 64;
+    if (shrinkTarget < 64)
+        shrinkTarget = historyTarget / 2;
+    if (shrinkTarget < 32)
+        shrinkTarget = 32;
+    if (subtitleHistory.length() > historyTarget) {
+        while (subtitleHistory.length() > shrinkTarget) {
             subtitleHistory.removeAt(0);
         }
     }
