@@ -10,6 +10,8 @@ python -m PyInstaller -F -w --clean --uac-admin ^
   --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT.ico;." ^
   --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT - Without Context.as;." ^
   --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\SubtitleTranslate - ChatGPT - Without Context.ico;." ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\releases\build\language_strings.json;." ^
+  --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\releases\build\model_token_limits.json;." ^
   --add-data "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\LICENSE;." ^
   "C:\Users\Felix\PycharmProjects\PotPlayer_Chatgpt_Translate\releases\build\installer.py"
 rmdir /s /q build

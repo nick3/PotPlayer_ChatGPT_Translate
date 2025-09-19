@@ -58,6 +58,7 @@ string pre_selected_model = "gpt-5-mini"; // will be replaced during installatio
 string pre_apiUrl = "https://api.openai.com/v1/chat/completions"; // will be replaced during installation
 string pre_delay_ms = "0"; // will be replaced during installation
 string pre_retry_mode = "0"; // will be replaced during installation
+string pre_model_token_limits_json = "{}"; // serialized token limit rules (injected by installer)
 
 string api_key = pre_api_key;
 string selected_model = pre_selected_model; // Default model
@@ -65,26 +66,52 @@ string apiUrl = pre_apiUrl; // Default API URL
 string delay_ms = pre_delay_ms; // Request delay in ms
 string retry_mode = pre_retry_mode; // Auto retry mode
 string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+bool token_rules_initialized = false;
+int default_model_token_limit = 4096;
+array<string> token_rule_types;
+array<string> token_rule_values;
+array<int> token_rule_limits;
 
 // Helper functions to load configuration while respecting installer defaults
 string BuildConfigSentinel(const string &in key) {
     return "#__POTPLAYER_CFG_UNSET__#" + key + "#__";
 }
 
-string LoadInstallerConfig(const string &in key, const string &in installerValue) {
+string LoadInstallerConfig(const string &in key, const string &in installerValue, const string &in fallbackKey = "") {
     string sentinel = BuildConfigSentinel(key);
     string storedValue = HostLoadString(key, sentinel);
+    if (storedValue == sentinel && fallbackKey != "") {
+        string fallbackSentinel = BuildConfigSentinel(fallbackKey);
+        string fallbackValue = HostLoadString(fallbackKey, fallbackSentinel);
+        if (fallbackValue != fallbackSentinel)
+            return fallbackValue;
+    }
     if (storedValue == sentinel)
         return installerValue;
     return storedValue;
 }
 
+void EnsureConfigDefault(const string &in key, const string &in value) {
+    string sentinel = BuildConfigSentinel(key);
+    if (HostLoadString(key, sentinel) == sentinel)
+        HostSaveString(key, value);
+}
+
+void EnsureInstallerDefaultsPersisted() {
+    EnsureConfigDefault("wc_api_key", pre_api_key);
+    EnsureConfigDefault("wc_selected_model", pre_selected_model);
+    EnsureConfigDefault("wc_apiUrl", pre_apiUrl);
+    EnsureConfigDefault("wc_delay_ms", pre_delay_ms);
+    EnsureConfigDefault("wc_retry_mode", pre_retry_mode);
+}
+
 void RefreshConfiguration() {
-    api_key = LoadInstallerConfig("wc_api_key", pre_api_key);
-    selected_model = LoadInstallerConfig("wc_selected_model", pre_selected_model);
-    apiUrl = LoadInstallerConfig("wc_apiUrl", pre_apiUrl);
-    delay_ms = LoadInstallerConfig("wc_delay_ms", pre_delay_ms);
-    retry_mode = LoadInstallerConfig("wc_retry_mode", pre_retry_mode);
+    EnsureInstallerDefaultsPersisted();
+    api_key = LoadInstallerConfig("wc_api_key", pre_api_key, "gpt_api_key");
+    selected_model = LoadInstallerConfig("wc_selected_model", pre_selected_model, "gpt_selected_model");
+    apiUrl = LoadInstallerConfig("wc_apiUrl", pre_apiUrl, "gpt_apiUrl");
+    delay_ms = LoadInstallerConfig("wc_delay_ms", pre_delay_ms, "gpt_delay_ms");
+    retry_mode = LoadInstallerConfig("wc_retry_mode", pre_retry_mode, "gpt_retry_mode");
 }
 
 // Supported Language List
@@ -426,18 +453,83 @@ int EstimateTokenCount(const string &in text) {
     return int(float(text.length()) / 4);
 }
 
+void EnsureTokenRulesLoaded() {
+    if (token_rules_initialized)
+        return;
+    token_rules_initialized = true;
+    default_model_token_limit = 4096;
+    token_rule_types.resize(0);
+    token_rule_values.resize(0);
+    token_rule_limits.resize(0);
+
+    JsonReader reader;
+    JsonValue root;
+    if (!reader.parse(pre_model_token_limits_json, root))
+        return;
+    if (!root.isObject())
+        return;
+
+    if (root["default"].isInt())
+        default_model_token_limit = root["default"].asInt();
+    else if (root["default"].isString()) {
+        int parsedDefault = ParseInt(root["default"].asString());
+        if (parsedDefault > 0)
+            default_model_token_limit = parsedDefault;
+    }
+
+    JsonValue rulesNode = root["rules"];
+    if (!rulesNode.isArray())
+        return;
+
+    int count = rulesNode.size();
+    for (int i = 0; i < count; i++) {
+        JsonValue entry = rulesNode[i];
+        if (!entry.isObject())
+            continue;
+        string matchType = "";
+        string matchValue = "";
+        int limit = 0;
+        if (entry["type"].isString())
+            matchType = entry["type"].asString();
+        if (entry["value"].isString())
+            matchValue = entry["value"].asString();
+        if (entry["tokens"].isInt())
+            limit = entry["tokens"].asInt();
+        else if (entry["tokens"].isString())
+            limit = ParseInt(entry["tokens"].asString());
+        if (matchType != "" && matchValue != "" && limit > 0) {
+            token_rule_types.insertLast(matchType);
+            token_rule_values.insertLast(matchValue);
+            token_rule_limits.insertLast(limit);
+        }
+    }
+}
+
 // Function to get the model's maximum context length
 int GetModelMaxTokens(const string &in modelName) {
-    if (modelName == "gpt-3.5-turbo")
-        return 4096;
-    else if (modelName == "gpt-3.5-turbo-16k")
-        return 16384;
-    else if (modelName == "gpt-4o")
-        return 128000;
-    else if (modelName == "gpt-5-mini")
-        return 128000;
-    else
-        return 4096;
+    EnsureTokenRulesLoaded();
+    string trimmedModel = modelName.Trim();
+    if (trimmedModel == "")
+        return default_model_token_limit;
+
+    for (uint i = 0; i < token_rule_types.length(); i++) {
+        string matchType = token_rule_types[i];
+        string matchValue = token_rule_values[i];
+        int limit = token_rule_limits[i];
+        if (matchType == "prefix") {
+            if (trimmedModel.length() >= matchValue.length() &&
+                trimmedModel.substr(0, matchValue.length()) == matchValue)
+                return limit;
+        } else if (matchType == "contains") {
+            if (trimmedModel.find(matchValue) != -1)
+                return limit;
+        } else if (matchType == "equals") {
+            if (trimmedModel == matchValue)
+                return limit;
+        }
+    }
+
+    return default_model_token_limit;
 }
 
 // Translation Function (Without Context Support)
