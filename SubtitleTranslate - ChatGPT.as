@@ -64,6 +64,7 @@ string pre_retry_mode = "0"; // will be replaced during installation
 string pre_context_token_budget = "6000"; // approx. tokens reserved for context (0 = auto)
 string pre_context_truncation_mode = "drop_oldest"; // drop_oldest | smart_trim
 string pre_context_cache_mode = "auto"; // auto | off
+string pre_model_token_limits_json = "{}"; // serialized token limit rules (injected by installer)
 
 string api_key = pre_api_key;
 string selected_model = pre_selected_model; // Default model
@@ -77,26 +78,55 @@ string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 array<string> subtitleHistory;  // Global subtitle history
 bool context_cache_disabled_for_session = false;
 string context_cache_disable_key = "";
+bool token_rules_initialized = false;
+int default_model_token_limit = 4096;
+array<string> token_rule_types;
+array<string> token_rule_values;
+array<int> token_rule_limits;
 
 // Helper functions to load configuration while respecting installer defaults
 string BuildConfigSentinel(const string &in key) {
     return "#__POTPLAYER_CFG_UNSET__#" + key + "#__";
 }
 
-string LoadInstallerConfig(const string &in key, const string &in installerValue) {
+string LoadInstallerConfig(const string &in key, const string &in installerValue, const string &in fallbackKey = "") {
     string sentinel = BuildConfigSentinel(key);
     string storedValue = HostLoadString(key, sentinel);
+    if (storedValue == sentinel && fallbackKey != "") {
+        string fallbackSentinel = BuildConfigSentinel(fallbackKey);
+        string fallbackValue = HostLoadString(fallbackKey, fallbackSentinel);
+        if (fallbackValue != fallbackSentinel)
+            return fallbackValue;
+    }
     if (storedValue == sentinel)
         return installerValue;
     return storedValue;
 }
 
+void EnsureConfigDefault(const string &in key, const string &in value) {
+    string sentinel = BuildConfigSentinel(key);
+    if (HostLoadString(key, sentinel) == sentinel)
+        HostSaveString(key, value);
+}
+
+void EnsureInstallerDefaultsPersisted() {
+    EnsureConfigDefault("gpt_api_key", pre_api_key);
+    EnsureConfigDefault("gpt_selected_model", pre_selected_model);
+    EnsureConfigDefault("gpt_apiUrl", pre_apiUrl);
+    EnsureConfigDefault("gpt_delay_ms", pre_delay_ms);
+    EnsureConfigDefault("gpt_retry_mode", pre_retry_mode);
+    EnsureConfigDefault("gpt_context_token_budget", pre_context_token_budget);
+    EnsureConfigDefault("gpt_context_truncation_mode", pre_context_truncation_mode);
+    EnsureConfigDefault("gpt_context_cache_mode", pre_context_cache_mode);
+}
+
 void RefreshConfiguration() {
-    api_key = LoadInstallerConfig("gpt_api_key", pre_api_key);
-    selected_model = LoadInstallerConfig("gpt_selected_model", pre_selected_model);
-    apiUrl = LoadInstallerConfig("gpt_apiUrl", pre_apiUrl);
-    delay_ms = LoadInstallerConfig("gpt_delay_ms", pre_delay_ms);
-    retry_mode = LoadInstallerConfig("gpt_retry_mode", pre_retry_mode);
+    EnsureInstallerDefaultsPersisted();
+    api_key = LoadInstallerConfig("gpt_api_key", pre_api_key, "wc_api_key");
+    selected_model = LoadInstallerConfig("gpt_selected_model", pre_selected_model, "wc_selected_model");
+    apiUrl = LoadInstallerConfig("gpt_apiUrl", pre_apiUrl, "wc_apiUrl");
+    delay_ms = LoadInstallerConfig("gpt_delay_ms", pre_delay_ms, "wc_delay_ms");
+    retry_mode = LoadInstallerConfig("gpt_retry_mode", pre_retry_mode, "wc_retry_mode");
     context_token_budget = LoadInstallerConfig("gpt_context_token_budget", pre_context_token_budget);
     context_truncation_mode = LoadInstallerConfig("gpt_context_truncation_mode", pre_context_truncation_mode);
     context_cache_mode = NormalizeCacheMode(LoadInstallerConfig("gpt_context_cache_mode", pre_context_cache_mode));
@@ -489,166 +519,29 @@ int EstimateTokenCount(const string &in text) {
 
 // Function to get the model's maximum context length
 int GetModelMaxTokens(const string &in modelName) {
+    EnsureTokenRulesLoaded();
     string trimmedModel = modelName.Trim();
     if (trimmedModel == "")
-        return 4096;
+        return default_model_token_limit;
 
-    // Known model prefixes mapped to approximate maximum context length (tokens).
-    array<string> knownContexts = {
-        "gpt-5-nano", "128000",
-        "gpt-5-mini", "128000",
-        "gpt-5", "200000",
-        "gpt-4.1-nano", "128000",
-        "gpt-4.1-mini", "128000",
-        "gpt-4.1-realtime", "128000",
-        "gpt-4.1-preview", "128000",
-        "gpt-4.1", "128000",
-        "gpt-4o-mini-translate", "128000",
-        "gpt-4o-mini-transcribe", "128000",
-        "gpt-4o-mini-audio", "128000",
-        "gpt-4o-mini", "128000",
-        "gpt-4o-realtime-preview", "128000",
-        "gpt-4o-realtime", "128000",
-        "gpt-4o-audio-preview", "128000",
-        "gpt-4o", "128000",
-        "gpt-4-turbo-preview", "128000",
-        "gpt-4-turbo", "128000",
-        "gpt-3.5-turbo-16k", "16384",
-        "gpt-3.5-turbo", "4096",
-        "o4-mini", "64000",
-        "o3-mini", "64000",
-        "o1-preview", "128000",
-        "o1-mini", "64000",
-        "o1", "128000",
-        "glm-4-plus", "128000",
-        "glm-4-air", "128000",
-        "glm-4", "128000",
-        "glm-3", "32000",
-        "claude-3.5-sonnet", "200000",
-        "claude-3.5-haiku", "200000",
-        "claude-3-opus", "200000",
-        "claude-3-sonnet", "200000",
-        "claude-3-haiku", "200000",
-        "claude-2.1", "200000",
-        "gemini-1.5-pro", "1000000",
-        "gemini-1.5-flash-8b", "1000000",
-        "gemini-1.5-flash", "1000000",
-        "gemini-1.0-pro", "32000",
-        "gemini-1.0", "32000",
-        "gemini-pro", "32000",
-        "deepseek-r1", "131072",
-        "deepseek-chat", "131072",
-        "deepseek-v3", "131072",
-        "qwen2.5", "131072",
-        "qwen2", "131072",
-        "qwen1.5", "65536",
-        "qwen", "32768",
-        "yi-1.5", "131072",
-        "yi-large", "131072",
-        "yi-34b", "131072",
-        "yi-9b", "65536",
-        "llama-3.2", "128000",
-        "llama-3.1-405b", "128000",
-        "llama-3.1-70b", "128000",
-        "llama-3.1-8b", "128000",
-        "llama-3.1", "128000",
-        "llama-3-70b", "8192",
-        "llama-3-8b", "8192",
-        "llama-2", "4096",
-        "mixtral-8x22b", "65536",
-        "mixtral-8x7b", "32768",
-        "mistral-large", "32000",
-        "mistral-medium", "32000",
-        "mistral-small", "16000",
-        "phi-3.5", "128000",
-        "phi-3", "128000",
-        "grok-2", "131072",
-        "grok-1.5", "131072"
-    };
-    for (uint i = 0; i + 1 < knownContexts.length(); i += 2) {
-        string pattern = knownContexts[i];
-        if (trimmedModel.length() >= pattern.length() && trimmedModel.substr(0, pattern.length()) == pattern)
-            return ParseInt(knownContexts[i + 1]);
+    for (uint i = 0; i < token_rule_types.length(); i++) {
+        string matchType = token_rule_types[i];
+        string matchValue = token_rule_values[i];
+        int limit = token_rule_limits[i];
+        if (matchType == "prefix") {
+            if (trimmedModel.length() >= matchValue.length() &&
+                trimmedModel.substr(0, matchValue.length()) == matchValue)
+                return limit;
+        } else if (matchType == "contains") {
+            if (trimmedModel.find(matchValue) != -1)
+                return limit;
+        } else if (matchType == "equals") {
+            if (trimmedModel == matchValue)
+                return limit;
+        }
     }
 
-    if (trimmedModel.find("1000k") != -1 || trimmedModel.find("1m") != -1)
-        return 1000000;
-    if (trimmedModel.find("512k") != -1)
-        return 524288;
-    if (trimmedModel.find("320k") != -1)
-        return 320000;
-    if (trimmedModel.find("256k") != -1)
-        return 256000;
-    if (trimmedModel.find("200k") != -1)
-        return 200000;
-    if (trimmedModel.find("160k") != -1)
-        return 160000;
-    if (trimmedModel.find("131k") != -1 || trimmedModel.find("130k") != -1)
-        return 131072;
-    if (trimmedModel.find("128k") != -1)
-        return 128000;
-    if (trimmedModel.find("100k") != -1)
-        return 100000;
-    if (trimmedModel.find("80k") != -1)
-        return 80000;
-    if (trimmedModel.find("65k") != -1)
-        return 65000;
-    if (trimmedModel.find("64k") != -1)
-        return 64000;
-    if (trimmedModel.find("40k") != -1)
-        return 40000;
-    if (trimmedModel.find("32k") != -1)
-        return 32768;
-    if (trimmedModel.find("16k") != -1)
-        return 16384;
-    if (trimmedModel.find("8k") != -1)
-        return 8192;
-    if (trimmedModel.find("4k") != -1)
-        return 4096;
-
-    if (trimmedModel.find("flash") != -1)
-        return 1000000;
-    if (trimmedModel.find("deepseek") != -1)
-        return 131072;
-    if (trimmedModel.find("grok") != -1)
-        return 131072;
-    if (trimmedModel.find("yi") != -1)
-        return 131072;
-    if (trimmedModel.find("phi-3") != -1)
-        return 128000;
-    if (trimmedModel.find("phi") != -1)
-        return 8192;
-    if (trimmedModel.find("llama-3.2") != -1 || trimmedModel.find("llama-3.1") != -1)
-        return 128000;
-    if (trimmedModel.find("llama-3") != -1)
-        return 8192;
-    if (trimmedModel.find("llama-2") != -1)
-        return 4096;
-    if (trimmedModel.find("claude") != -1)
-        return 200000;
-    if (trimmedModel.find("gemini") != -1)
-        return 32000;
-
-    if (trimmedModel.find("nano") != -1)
-        return 128000;
-    if (trimmedModel.find("mini") != -1)
-        return 64000;
-    if (trimmedModel.find("sonnet") != -1)
-        return 200000;
-    if (trimmedModel.find("haiku") != -1)
-        return 128000;
-    if (trimmedModel.find("opus") != -1)
-        return 200000;
-    if (trimmedModel.find("qwen") != -1)
-        return 32768;
-    if (trimmedModel.find("glm") != -1)
-        return 128000;
-    if (trimmedModel.find("mistral") != -1)
-        return 32000;
-    if (trimmedModel.find("mixtral") != -1)
-        return 65536;
-
-    return 4096;
+    return default_model_token_limit;
 }
 
 // Translation Function
@@ -899,6 +792,58 @@ string NormalizeCacheMode(const string &in mode) {
     if (lower == "off" || lower == "disable" || lower == "disabled" || lower == "chat")
         return "off";
     return "auto";
+}
+
+void EnsureTokenRulesLoaded() {
+    if (token_rules_initialized)
+        return;
+    token_rules_initialized = true;
+    default_model_token_limit = 4096;
+    token_rule_types.resize(0);
+    token_rule_values.resize(0);
+    token_rule_limits.resize(0);
+
+    JsonReader reader;
+    JsonValue root;
+    if (!reader.parse(pre_model_token_limits_json, root))
+        return;
+    if (!root.isObject())
+        return;
+
+    if (root["default"].isInt())
+        default_model_token_limit = root["default"].asInt();
+    else if (root["default"].isString()) {
+        int parsedDefault = ParseInt(root["default"].asString());
+        if (parsedDefault > 0)
+            default_model_token_limit = parsedDefault;
+    }
+
+    JsonValue rulesNode = root["rules"];
+    if (!rulesNode.isArray())
+        return;
+
+    int count = rulesNode.size();
+    for (int i = 0; i < count; i++) {
+        JsonValue entry = rulesNode[i];
+        if (!entry.isObject())
+            continue;
+        string matchType = "";
+        string matchValue = "";
+        int limit = 0;
+        if (entry["type"].isString())
+            matchType = entry["type"].asString();
+        if (entry["value"].isString())
+            matchValue = entry["value"].asString();
+        if (entry["tokens"].isInt())
+            limit = entry["tokens"].asInt();
+        else if (entry["tokens"].isString())
+            limit = ParseInt(entry["tokens"].asString());
+        if (matchType != "" && matchValue != "" && limit > 0) {
+            token_rule_types.insertLast(matchType);
+            token_rule_values.insertLast(matchValue);
+            token_rule_limits.insertLast(limit);
+        }
+    }
 }
 
 string DeriveResponsesUrl(const string &in originalUrl) {

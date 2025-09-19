@@ -3,6 +3,7 @@
 
 import ctypes
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -16,6 +17,34 @@ import win32com.client
 from PyQt6 import QtWidgets, QtCore, QtGui
 
 PLUGIN_VERSION = "1.7"
+
+# ========= Helpers for bundled resources =========
+
+def resource_path(relative_path: str) -> str:
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
+def load_json_resource(filename: str):
+    path = resource_path(filename)
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_json_text(filename: str) -> str:
+    path = resource_path(filename)
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+
+def _format_language_strings(strings):
+    for lang_dict in strings.values():
+        if isinstance(lang_dict, dict):
+            for key, value in list(lang_dict.items()):
+                if isinstance(value, str):
+                    lang_dict[key] = value.replace("{VERSION}", PLUGIN_VERSION)
+
 
 # ========= Per-model provider dict (model → api_base ROOT & purchase link) =========
 # 重要：api_base 统一为“根路径”（例如 https://api.openai.com/v1），不要带 /chat/completions
@@ -66,233 +95,9 @@ API_PROVIDERS = {
     }
 }
 
-# ========= i18n Strings =========
-LANGUAGE_STRINGS = {
-    "en": {
-        "app_title": "PotPlayer ChatGPT Translate Installer",
-        "admin_required": "This installer needs to be run with administrator privileges.\nPlease restart as administrator.",
-        "next": "Next",
-        "back": "Back",
-        "browse": "Browse",
-        "cancel": "Cancel",
-        "finish": "Finish",
-        "yes": "Yes",
-        "no": "No",
-
-        "choose_language": "Choose your language",
-        "language_english": "English",
-        "language_chinese": "中文",
-
-        "welcome_title": "Welcome",
-        "welcome_message": f"Welcome to the PotPlayer ChatGPT Translate Installer (v{PLUGIN_VERSION}).\n\n"
-                           "This wizard will:\n"
-                           "1) Detect PotPlayer Translate folder automatically (if possible).\n"
-                           "2) Let you choose the plugin variant.\n"
-                           "3) Configure API model & endpoint.\n"
-                           "4) Copy .as and .ico files and optionally register an uninstaller.\n",
-        "author_info": "Author: Felix3322  |  Project: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
-
-        "license_title": "License Agreement",
-        "license_intro": "Please review and accept the license to continue.",
-        "license_agree": "I Agree",
-        "license_disagree": "I Disagree",
-        "license_reject": "You must agree to the license to continue.",
-
-        "select_install_dir_title": "Select Install Directory",
-        "select_install_dir_explain": "Select PotPlayer's Translate directory.\n\n"
-                                      "Heads-up: The installer auto-detects the path. If you know what this means, "
-                                      "double-check the detected path below; otherwise, Browse to locate the correct folder.\n"
-                                      "Typical path: .../PotPlayer/Extension/Subtitle/Translate",
-        "select_directory": "Please select the PotPlayer Translate directory.",
-        "confirm_path": "Detected PotPlayer path:\n{}\nUse this path?",
-        "not_detected": "No PotPlayer Translate path was detected. Please choose the folder manually.",
-
-        "choose_version_title": "Choose Plugin Variant",
-        "choose_version": "Select the plugin variants to install (you can choose one or both):",
-        "with_context": "Installer with Context Handling (recommended)",
-        "without_context": "Installer without Context Handling",
-        "with_context_description": "Advanced context-aware processing for better accuracy (higher API usage).",
-        "without_context_description": "Lightweight mode without context for lower API usage (faster/cheaper).",
-        "version_explain": "Explanation:\n- With Context: sends surrounding subtitle context to the model to improve translation.\n"
-                           "- Without Context: translates lines independently; cheaper and faster but less coherent across lines.\n"
-                           "You can install both variants and switch them in PotPlayer at any time.",
-        "version_select_warning": "Please choose at least one variant to continue.",
-        "with_context_short": "With context",
-        "without_context_short": "Without context",
-        "context_title": "Context Handling Settings",
-        "context_intro": "Configure how much subtitle history is sent when using the context-aware plugin. 0 = automatic based on the selected model.",
-        "context_length_label": "Context budget:",
-        "context_length_suffix": "tokens",
-        "context_length_auto": "Auto (model-based)",
-        "context_length_hint": "This limits the approximate number of tokens reserved for previous subtitles. Higher values improve consistency but use more quota.",
-        "context_trunc_label": "When the budget is exceeded:",
-        "context_trunc_drop_oldest": "Drop the oldest subtitles (recommended)",
-        "context_trunc_smart_trim": "Smart trim the oldest subtitle to fit the remaining budget",
-        "context_cache_label": "Context caching:",
-        "context_cache_auto": "Auto (use caching when supported, fallback to chat)",
-        "context_cache_off": "Off (always use chat completions)",
-        "context_cache_hint": "Uses the Responses endpoint to cache repeated instructions and context. Leave on Auto unless your provider does not support it.",
-        "installing_variant": "Installing variant: {}",
-
-        "config_title": "Verify / Configure API Settings",
-        "config_intro": "Provide API settings. Each preset model carries its own default API URL and billing page.\n" 
-                        "You can also switch to 'Custom' and fill in your own endpoint.\n" 
-                        "If your endpoint doesn't require an API key, leave the field blank and the installer will configure a 'nullkey'.",
-        "config_model": "Model:",
-        "config_api": "API Base URL:",
-        "config_key": "API Key:",
-        "config_key_placeholder": "Leave blank if not required (uses nullkey)",
-        "config_model_preset": "Model Preset:",
-        "purchase_button": "Open Billing / Recharge Page",
-        "verify": "Verify",
-        "skip": "Skip",
-        "verifying": "Verifying...",
-        "verify_success": "Verification passed.",
-        "verify_fail": "Verification failed:\n{}",
-        "purchase_hint": "This button opens the billing/recharge page for the selected model/provider.",
-        "delay_title": "Request Delay",
-        "delay_intro": "Set a delay (ms) between API requests to avoid rate limits. <a href=\"https://platform.openai.com/docs/guides/rate-limits\">Learn more</a>.\nNo configuration is required unless translation problems are encountered.",
-        "delay_label": "Delay (ms):",
-        "retry_title": "Auto Retry",
-        "retry_intro": "Choose how failed requests are retried. \"Until success (delayed)\" waits the configured delay between attempts.",
-        "retry_label": "Retry Mode:",
-        "retry_off": "Off",
-        "retry_once": "Retry once immediately",
-        "retry_until": "Retry until success",
-        "retry_until_delay": "Retry until success (delayed)",
-        "debug_title": "Debug Mode",
-        "debug_label": "Enable debug console",
-
-        "install_progress_title": "Installation Progress",
-        "install_progress": "Installing files and applying configuration...",
-
-        "file_exists_3choice": "File {} already exists.\n\nPlease choose:\n- Overwrite & Upgrade\n- Rename\n- Cancel",
-        "overwrite": "Overwrite",
-        "rename": "Rename",
-
-        "ask_reg_write": "Detected file exists but no uninstall info in registry.\nWrite uninstall info for easier removal?",
-        "ask_reg_upgrade": "Existing uninstall registry info detected.\nUpdate registry to the new version?",
-        "ask_reg_new": "No uninstall registry info was found.\nWrite uninstall info for easier removal?",
-
-        "installation_complete": "Installation completed successfully!",
-        "installation_failed": "Installation failed: {}",
-        "installation_cancelled": "Installation cancelled by user.",
-
-        "finish_title": "Done",
-    },
-    "zh": {
-        "app_title": "PotPlayer ChatGPT 翻译安装程序",
-        "admin_required": "此安装器需要以管理员权限运行，请以管理员身份重启。",
-        "next": "下一步",
-        "back": "上一步",
-        "browse": "浏览",
-        "cancel": "取消",
-        "finish": "完成",
-        "yes": "是",
-        "no": "否",
-
-        "choose_language": "选择语言",
-        "language_english": "English",
-        "language_chinese": "中文",
-
-        "welcome_title": "欢迎",
-        "welcome_message": f"欢迎使用 PotPlayer ChatGPT 翻译安装程序 (v{PLUGIN_VERSION})。\n\n"
-                           "本向导将：\n"
-                           "1) 自动识别 PotPlayer 的 Translate 目录（若可能）。\n"
-                           "2) 让你选择插件版本（带上下文 / 不带上下文）。\n"
-                           "3) 配置 API 模型与接口地址。\n"
-                           "4) 复制 .as 和 .ico 文件，并可写入注册表以便卸载。\n",
-        "author_info": "作者: Felix3322  |  项目: https://github.com/Felix3322/PotPlayer_ChatGPT_Translate",
-
-        "license_title": "许可协议",
-        "license_intro": "请阅读并同意许可协议后继续。",
-        "license_agree": "我同意",
-        "license_disagree": "我不同意",
-        "license_reject": "必须同意许可协议才能继续。",
-
-        "select_install_dir_title": "选择安装目录",
-        "select_install_dir_explain": "请选择 PotPlayer 的 Translate 目录。\n\n"
-                                      "提示：安装器会自动识别路径。如果你知道这是什么意思，可以检查下面的自动结果；"
-                                      "若不确定，请点击“浏览”手动定位正确目录。\n"
-                                      "典型路径：.../PotPlayer/Extension/Subtitle/Translate",
-        "select_directory": "请选择PotPlayer的Translate目录。",
-        "confirm_path": "检测到的 PotPlayer 路径：\n{}\n是否使用该路径？",
-        "not_detected": "未检测到 PotPlayer Translate 路径，请手动选择。",
-
-        "choose_version_title": "选择插件版本",
-        "choose_version": "请选择要安装的版本（可多选）：",
-        "with_context": "带上下文处理（推荐）",
-        "without_context": "不带上下文处理",
-        "with_context_description": "高级上下文处理，翻译更准确（API 消耗更高）。",
-        "without_context_description": "轻量模式，不带上下文（更快/更省），但跨行连贯性较弱。",
-        "version_explain": "解释：\n- 带上下文：会向模型发送相邻字幕的上下文，提升准确度与一致性；\n"
-                           "- 不带上下文：逐行翻译，成本更低但跨行一致性较弱。\n"
-                           "你可以同时安装两个版本，并在 PotPlayer 中切换使用。",
-        "version_select_warning": "请至少选择一个版本再继续。",
-        "with_context_short": "带上下文",
-        "without_context_short": "不带上下文",
-        "context_title": "上下文设置",
-        "context_intro": "配置安装带上下文插件时发送的历史字幕长度。0 表示根据模型自动计算。",
-        "context_length_label": "上下文预算：",
-        "context_length_suffix": "标记",
-        "context_length_auto": "自动（按模型）",
-        "context_length_hint": "该值限制用于历史字幕的大致标记数。数值越大连贯性越好，但消耗的额度也会增加。",
-        "context_trunc_label": "超过预算时：",
-        "context_trunc_drop_oldest": "丢弃最早的字幕（推荐）",
-        "context_trunc_smart_trim": "智能截取最早的字幕以适配剩余预算",
-        "context_cache_label": "上下文缓存：",
-        "context_cache_auto": "自动（支持时启用，不支持则回退到 chat）",
-        "context_cache_off": "关闭（始终使用 chat 请求）",
-        "context_cache_hint": "通过 Responses 端点缓存重复的提示与上下文，降低成本。除非服务不支持 Responses，建议保持自动模式。",
-        "installing_variant": "正在安装版本：{}",
-
-        "config_title": "验证 / 配置 API 设置",
-        "config_intro": "在此提供 API 设置。每个预设模型包含默认的 API 地址与充值页面。\n" 
-                        "你也可以选择“自定义”并填写自己的地址。\n" 
-                        "若接口不需要 API Key，可将该字段留空，安装器会自动配置 nullkey。",
-        "config_model": "模型：",
-        "config_api": "API 根地址：",
-        "config_key": "API Key：",
-        "config_key_placeholder": "若不需要可留空（使用 nullkey）",
-        "config_model_preset": "模型预设：",
-        "purchase_button": "打开充值/购买页面",
-        "verify": "验证",
-        "skip": "跳过",
-        "verifying": "正在验证...",
-        "verify_success": "验证成功。",
-        "verify_fail": "验证失败：\n{}",
-        "purchase_hint": "此按钮会打开所选模型/供应商的充值或购买页面。",
-        "delay_title": "请求延迟",
-        "delay_intro": "设置API请求之间的延迟(毫秒)以避免速率限制。<a href=\"https://platform.openai.com/docs/guides/rate-limits\">详见说明</a>\n如果没有出现翻译问题，就不需要进行额外设置。",
-        "delay_label": "延迟 (毫秒):",
-        "retry_title": "自动重试",
-        "retry_intro": "选择请求失败后的重试方式。“重试直到成功（间隔）”会使用前面配置的延迟。",
-        "retry_label": "重试模式:",
-        "retry_off": "关闭",
-        "retry_once": "立即重试一次",
-        "retry_until": "重试直到成功",
-        "retry_until_delay": "重试直到成功（间隔重试）",
-        "debug_title": "调试模式",
-        "debug_label": "启用调试控制台",
-
-        "install_progress_title": "安装进度",
-        "install_progress": "正在复制文件并应用配置...",
-
-        "file_exists_3choice": "文件 {} 已存在。\n\n请选择：\n- 覆盖升级\n- 重命名\n- 取消",
-        "overwrite": "覆盖",
-        "rename": "重命名",
-
-        "ask_reg_write": "检测到文件已存在但未写入卸载信息。\n是否写入注册表以便卸载？",
-        "ask_reg_upgrade": "检测到已有卸载注册表信息。\n是否更新为新版本？",
-        "ask_reg_new": "未发现卸载注册表信息。\n是否写入注册表以便卸载？",
-
-        "installation_complete": "安装成功！",
-        "installation_failed": "安装失败：{}",
-        "installation_cancelled": "用户取消了安装。",
-
-        "finish_title": "完成",
-    }
-}
+LANGUAGE_STRINGS = load_json_resource("language_strings.json")
+_format_language_strings(LANGUAGE_STRINGS)
+MODEL_TOKEN_LIMITS_JSON = load_json_text("model_token_limits.json")
 
 OFFLINE_FILES = {
     "with_context": [
@@ -391,6 +196,11 @@ def ensure_dir_exists(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
+
+def _escape_for_as_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+
+
 # —— OpenAI SDK 验证：把“可能是完整 endpoint”的 api_url 规范化为 base_url 根路径
 def _normalize_base_url_for_openai(api_url: str) -> str:
     u = (api_url or "").strip().rstrip("/")
@@ -469,7 +279,8 @@ def generate_uninstaller(uninstall_bat_path, files_to_delete, reg_key):
         f.write("\nexit\n")
 
 def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, debug_mode,
-                    context_budget=None, context_truncation=None, context_cache_mode=None):
+                    context_budget=None, context_truncation=None, context_cache_mode=None,
+                    token_limits_json=None):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = f.read()
@@ -486,6 +297,10 @@ def apply_preconfig(file_path, api_key, model, api_base, delay_ms, retry_mode, d
             cache_value = str(context_cache_mode)
             data = re.sub(r'pre_context_cache_mode\s*=\s*".*?"',
                           f'pre_context_cache_mode = "{cache_value}"', data)
+        if token_limits_json is not None:
+            escaped_json = _escape_for_as_string(token_limits_json)
+            data = re.sub(r'pre_model_token_limits_json\s*=\s*".*?"',
+                          f'pre_model_token_limits_json = "{escaped_json}"', data)
         if debug_mode and "HostOpenConsole();" not in data:
             idx = data.find("*/")
             if idx != -1:
@@ -629,7 +444,8 @@ class InstallThread(QtCore.QThread):
                         apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
                                         str(self.context_budget) if variant == "with_context" else None,
                                         self.context_truncation if variant == "with_context" else None,
-                                        self.context_cache_mode if variant == "with_context" else None)
+                                        self.context_cache_mode if variant == "with_context" else None,
+                                        MODEL_TOKEN_LIMITS_JSON)
                     self.progress.emit(f"Installed {dest_name} (Overwritten).")
                     self.files_installed.append(dest_path)
                     files_for_variant.append(dest_path)
@@ -659,7 +475,8 @@ class InstallThread(QtCore.QThread):
                             apply_preconfig(new_dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
                                             str(self.context_budget) if variant == "with_context" else None,
                                             self.context_truncation if variant == "with_context" else None,
-                                            self.context_cache_mode if variant == "with_context" else None)
+                                            self.context_cache_mode if variant == "with_context" else None,
+                                            MODEL_TOKEN_LIMITS_JSON)
                         self.progress.emit(f"Installed {new_name}.")
                         self.files_installed.append(new_dest_path)
                         files_for_variant.append(new_dest_path)
@@ -672,7 +489,8 @@ class InstallThread(QtCore.QThread):
                     apply_preconfig(dest_path, self.api_key, self.model, self.api_base, self.delay_ms, self.retry_mode, self.debug_mode,
                                     str(self.context_budget) if variant == "with_context" else None,
                                     self.context_truncation if variant == "with_context" else None,
-                                    self.context_cache_mode if variant == "with_context" else None)
+                                    self.context_cache_mode if variant == "with_context" else None,
+                                    MODEL_TOKEN_LIMITS_JSON)
                 self.progress.emit(f"Installed {dest_name}.")
                 self.files_installed.append(dest_path)
                 files_for_variant.append(dest_path)
@@ -949,8 +767,38 @@ class ConfigPage(QtWidgets.QWizardPage):
         self.verify_btn.setText(s["verify"])
         self.skip_btn.setText(s["skip"])
 
-        first = self.model_combo.itemText(0)
-        self.on_model_change(first, initializing=True)
+        stored_model = self.wizard.model or ""
+        stored_api = self.wizard.api_base or ""
+        stored_key = self.wizard.api_key or ""
+        normalized_api = _normalize_base_url_for_openai(stored_api)
+
+        target_index = -1
+        for idx, preset in enumerate(preset_names):
+            provider = API_PROVIDERS.get(preset, API_PROVIDERS["__CUSTOM__"])
+            if provider.get("model", "") == stored_model and provider.get("api_base", "") == normalized_api:
+                target_index = idx
+                break
+
+        self.model_combo.blockSignals(True)
+        if target_index >= 0:
+            self.model_combo.setCurrentIndex(target_index)
+        else:
+            custom_index = self.model_combo.count() - 1
+            if custom_index < 0:
+                custom_index = 0
+            self.model_combo.setCurrentIndex(custom_index)
+        self.model_combo.blockSignals(False)
+
+        if target_index >= 0:
+            current_text = self.model_combo.itemText(target_index)
+            self.on_model_change(current_text, initializing=True)
+            self.api_edit.setText(normalized_api)
+        else:
+            self.on_model_change("Custom...", initializing=True)
+            self.model_edit.setText(stored_model)
+            self.api_edit.setText(stored_api)
+
+        self.key_edit.setText(stored_key)
         self.status.setText("")
         self.skip = False
 
