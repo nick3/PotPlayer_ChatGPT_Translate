@@ -1,3 +1,7 @@
+## 源代码的版本并不是设计给普通用户使用的（我还没有完全测试）
+## 如果你愿意，可以尝试，但是普通用户请在此处下载：<a href="#fully-automatic-installation-recommended-">Fully Automatic Installation</a>
+
+
 <a id="readme-top"></a>
 
 [![Forks][forks-shield]]([forks-url])
