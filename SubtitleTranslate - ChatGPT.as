@@ -363,10 +363,10 @@ string ServerLogin(string User, string Pass) {
     string testUserMsg = "Hello";
     string escapedTestSystemMsg = JsonEscape(testSystemMsg);
     string escapedTestUserMsg = JsonEscape(testUserMsg);
-    string testRequestData = "{\"model\":\"" + userModel + "\","
-                             "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"},"
-                             "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}],"
-                             "\"max_tokens\":1,\"temperature\":0}";
+    string testRequestData = "{\"model\":\"" + userModel + "\"," 
+                             "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"}," 
+                             "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}]," 
+                             "\"max_completion_tokens\":1,\"temperature\":0}"; 
     string testResponse = HostUrlGetString(apiUrlLocal, UserAgent, verifyHeaders, testRequestData);
     if (testResponse != "") {
         JsonReader testReader;
@@ -683,10 +683,10 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
 
-    string requestData = "{\"model\":\"" + selected_model + "\","
-                         "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"},"
-                         "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}],"
-                         "\"max_tokens\":1000,\"temperature\":0}";
+    string requestData = "{\"model\":\"" + selected_model + "\"," 
+                         "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"}," 
+                         "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}]," 
+                         "\"max_completion_tokens\":1000,\"temperature\":0}"; 
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
     int delayInt = ParseInt(delay_ms);
