@@ -639,8 +639,10 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         shrinkTarget = historyTarget / 2;
     if (shrinkTarget < 32)
         shrinkTarget = 32;
-    if (subtitleHistory.length() > historyTarget) {
-        while (subtitleHistory.length() > shrinkTarget) {
+    const uint historyTargetCount = historyTarget > 0 ? uint(historyTarget) : 0;
+    const uint shrinkTargetCount = shrinkTarget > 0 ? uint(shrinkTarget) : 0;
+    if (subtitleHistory.length() > historyTargetCount) {
+        while (subtitleHistory.length() > shrinkTargetCount) {
             subtitleHistory.removeAt(0);
         }
     }
@@ -775,13 +777,7 @@ void OnFinalize() {
     HostPrintUTF8("ChatGPT translation plugin unloaded.\n");
 }
 string ToLower(const string &in s) {
-    string res = s;
-    for (uint i = 0; i < res.length(); i++) {
-        uint8 c = res[i];
-        if (c >= 65 && c <= 90)
-            res.setCharAt(i, c + 32);
-    }
-    return res;
+    return s.MakeLower();
 }
 
 string NormalizeCacheMode(const string &in mode) {
