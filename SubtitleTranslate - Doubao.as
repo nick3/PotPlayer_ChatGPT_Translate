@@ -84,6 +84,7 @@ array<string> token_rule_types;
 array<string> token_rule_values;
 array<int> token_rule_limits;
 const string DOUBAO_TARGET_SEPARATOR = "%%";
+const int DOUBAO_PROMPT_TOKEN_CAP = 256; // Doubao models stay responsive with compact user payloads
 
 // Helper functions to load configuration while respecting installer defaults
 string BuildConfigSentinel(const string &in key) {
@@ -695,13 +696,19 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     if (configuredBudget <= 0 || configuredBudget > safeBudget)
         configuredBudget = safeBudget;
 
+    bool isDoubaoModel = selected_model.find("doubao") != -1;
+    if (isDoubaoModel && configuredBudget > DOUBAO_PROMPT_TOKEN_CAP)
+        configuredBudget = DOUBAO_PROMPT_TOKEN_CAP;
+
     string truncMode = context_truncation_mode;
     bool useSmartTrim = EqualsIgnoreCase(truncMode, "smart_trim");
 
     int currentTokens = EstimateTokenCount(Text);
     if (currentTokens < 0)
         currentTokens = 0;
-    int availableForContext = safeBudget - currentTokens;
+
+    int availableForContext = isDoubaoModel ? configuredBudget - currentTokens
+                                            : safeBudget - currentTokens;
     if (availableForContext < 0)
         availableForContext = 0;
     if (availableForContext > configuredBudget)
