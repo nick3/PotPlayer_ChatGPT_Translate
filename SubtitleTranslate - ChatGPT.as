@@ -646,38 +646,27 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         }
     }
 
-    string systemMsg =
-        "You are an expert subtitle translate tool with a deep understanding of both language and culture."
-        "Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue."
-        "Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed."
-        "I will provide you with some context for better translations, but DO NOT output any of them.\n"
-
-        "Rules:\n"
-        "1. Output the translation only."
-        "2. Do NOT output extra comments or explanations."
-        "3. Do NOT use any special characters or formatting in the translation.";
-
     string sourceLabel = (SrcLang == "" ? "Auto Detect" : SrcLang);
     string targetLangCode = DstLang;
     string targetLabel = targetLangCode;
 
-    string userInstruction =
-        "Translate the complete content under the section 'Subtitle to translate' based on the section 'Subtitle context', if it exists.\n\n"
+    string systemMsg =
+        "You are an expert subtitle translate tool with a deep understanding of both language and culture. "
+        "Based on contextual clues, you provide translations that capture not only the literal meaning but also the nuanced metaphors, euphemisms, and cultural symbols embedded in the dialogue. "
+        "Your translations reflect the intended tone and cultural context, ensuring that every subtle reference and idiomatic expression is accurately conveyed. "
+        "I will provide you with relevant context when available; never echo that context in the output.\n\n"
+        "Rules:\n"
+        "1. Output the translation only.\n"
+        "2. Do NOT output extra comments or explanations.\n"
+        "3. Do NOT use any special characters or formatting in the translation.\n\n"
         "Source language: " + sourceLabel + "\n"
-        "Target language: " + targetLabel + "\n\n";
+        "Target language: " + targetLabel + "\n";
 
-    string userMsg = userInstruction;
     if (context != "") {
-        userMsg += "[Subtitle context](DO NOT OUTPUT!):\n" + "{" + context + "}\n\n";
+        systemMsg += "\nSubtitle context (older to newer):\n" + context + "\n\nDo not translate or repeat any context entries.";
     }
-    userMsg += "[Subtitle to translate]:\n" + "{" + Text + "}";
 
-    string cachingInstruction =
-        "Translate the complete content under 'Subtitle to translate' using the provided context entries if available. "
-        "Each entry is shown as \"Context entry (older to newer): {...}\" and must never appear in the output.\n\n"
-        "Source language: " + sourceLabel + "\n"
-        "Target language: " + targetLabel + "\n\n"
-        "Output only the translated subtitle without extra commentary.";
+    string userMsg = Text;
 
     string escapedSystemMsg = JsonEscape(systemMsg);
     string escapedUserMsg = JsonEscape(userMsg);
@@ -700,7 +689,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
         string responsesUrl = DeriveResponsesUrl(apiUrl);
         string cacheFailure = "";
         if (responsesUrl != "") {
-            translation = TranslateWithResponses(responsesUrl, headers, systemMsg, cachingInstruction, @contextSegments, Text, delayInt, retryModeInt, cacheFailure);
+            translation = TranslateWithResponses(responsesUrl, headers, systemMsg, Text, delayInt, retryModeInt, cacheFailure);
         } else {
             cacheFailure = "Unable to resolve responses endpoint from current API URL.";
         }
@@ -870,22 +859,12 @@ string ExecuteWithRetry(const string &in url, const string &in headers, const st
     return response;
 }
 
-string BuildResponsesPayload(const string &in systemMsg, const string &in instruction, const array<string>@ contextSegments, const string &in subtitleText) {
+string BuildResponsesPayload(const string &in systemMsg, const string &in subtitleText) {
     string escapedSystem = JsonEscape(systemMsg);
-    string escapedInstruction = JsonEscape(instruction);
+    string escapedSubtitle = JsonEscape(subtitleText);
     string payload = "{\"model\":\"" + selected_model + "\",\"input\":[";
     payload += "{\"role\":\"system\",\"content\":[{\"type\":\"input_text\",\"text\":\"" + escapedSystem + "\",\"cache_control\":{\"type\":\"ephemeral\"}}]}";
-    payload += ",{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"" + escapedInstruction + "\",\"cache_control\":{\"type\":\"ephemeral\"}}";
-    if (contextSegments !is null && contextSegments.length() > 0) {
-        for (uint i = 0; i < contextSegments.length(); i++) {
-            string ctxLine = "Context entry (older to newer): {" + contextSegments[i] + "}";
-            string escapedCtxLine = JsonEscape(ctxLine);
-            payload += ",{\"type\":\"input_text\",\"text\":\"" + escapedCtxLine + "\",\"cache_control\":{\"type\":\"ephemeral\"}}";
-        }
-    }
-    string subtitleLine = "Subtitle to translate: {" + subtitleText + "}";
-    string escapedSubtitle = JsonEscape(subtitleLine);
-    payload += ",{\"type\":\"input_text\",\"text\":\"" + escapedSubtitle + "\"}]}";
+    payload += ",{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"" + escapedSubtitle + "\"}]}";
     payload += "]}";
     return payload;
 }
@@ -916,8 +895,8 @@ string ExtractResponsesText(JsonValue &in root) {
     return "";
 }
 
-string TranslateWithResponses(const string &in responsesUrl, const string &in headers, const string &in systemMsg, const string &in instruction, const array<string>@ contextSegments, const string &in subtitleText, int delayInt, int retryModeInt, string &out failureReason) {
-    string requestData = BuildResponsesPayload(systemMsg, instruction, contextSegments, subtitleText);
+string TranslateWithResponses(const string &in responsesUrl, const string &in headers, const string &in systemMsg, const string &in subtitleText, int delayInt, int retryModeInt, string &out failureReason) {
+    string requestData = BuildResponsesPayload(systemMsg, subtitleText);
     string response = ExecuteWithRetry(responsesUrl, headers, requestData, delayInt, retryModeInt);
     if (response == "") {
         failureReason = "No response from Responses endpoint.";
