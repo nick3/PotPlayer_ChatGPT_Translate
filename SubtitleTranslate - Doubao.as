@@ -83,7 +83,7 @@ int default_model_token_limit = 4096;
 array<string> token_rule_types;
 array<string> token_rule_values;
 array<int> token_rule_limits;
-int context_marker_counter = 0;
+const string DOUBAO_TARGET_SEPARATOR = "%%";
 
 // Helper functions to load configuration while respecting installer defaults
 string BuildConfigSentinel(const string &in key) {
@@ -517,11 +517,6 @@ int EstimateTokenCount(const string &in text) {
     return int(float(text.length()) / 4);
 }
 
-string NextMarkerId() {
-    context_marker_counter++;
-    return "" + context_marker_counter;
-}
-
 string BuildDoubaoSystemJson(const string &in sourceLangCode, const string &in targetLangCode) {
     string escapedSource = JsonEscape(sourceLangCode);
     string escapedTarget = JsonEscape(targetLangCode);
@@ -531,41 +526,82 @@ string BuildDoubaoSystemJson(const string &in sourceLangCode, const string &in t
 }
 
 string ComposeDoubaoUserPayload(const array<string> &in contextSegments, const string &in currentSubtitle, string &out startMarker, string &out endMarker) {
-    string markerId = NextMarkerId();
-    startMarker = "[[BEGIN_TARGET_" + markerId + "]]";
-    endMarker = "[[END_TARGET_" + markerId + "]]";
+    startMarker = DOUBAO_TARGET_SEPARATOR;
+    endMarker = "";
 
     string payload = "";
-    if (contextSegments.length() > 0) {
-        for (uint i = 0; i < contextSegments.length(); i++) {
-            payload += contextSegments[i];
-            if (i + 1 < contextSegments.length())
-                payload += "\n";
-        }
-        payload += "\n\n";
+    for (uint i = 0; i < contextSegments.length(); i++) {
+        if (payload.length() > 0 && payload.substr(payload.length() - 1, 1) != "\n")
+            payload += "\n";
+        payload += contextSegments[i];
+        if (contextSegments[i].length() == 0 || contextSegments[i].substr(contextSegments[i].length() - 1, 1) != "\n")
+            payload += "\n";
     }
 
-    payload += startMarker + "\n" + currentSubtitle + "\n" + endMarker;
+    if (payload.length() > 0 && payload.substr(payload.length() - 1, 1) != "\n")
+        payload += "\n";
+
+    if (payload.length() > 0)
+        payload += DOUBAO_TARGET_SEPARATOR + "\n";
+    else
+        payload = DOUBAO_TARGET_SEPARATOR + "\n";
+
+    payload += currentSubtitle;
     return payload;
 }
 
-string ExtractDoubaoTranslation(const string &in rawText, const string &in startMarker, const string &in endMarker) {
+void SplitLines(const string &in text, array<string> &out lines) {
+    lines.resize(0);
+    int start = 0;
+    int length = int(text.length());
+    for (int i = 0; i <= length; i++) {
+        if (i == length || text.substr(i, 1) == "\n") {
+            lines.insertLast(text.substr(start, i - start));
+            start = i + 1;
+        }
+    }
+}
+
+string ExtractDoubaoTranslation(const string &in rawText, const string &in startMarker, const string &in endMarker, bool &out separatorFound) {
+    separatorFound = false;
     string normalized = rawText;
     normalized.replace("\r\n", "\n");
     normalized.replace("\r", "\n");
+    string separator = startMarker;
+    if (separator == "")
+        separator = DOUBAO_TARGET_SEPARATOR;
 
-    int startPos = normalized.find(startMarker);
-    if (startPos != -1) {
-        startPos += startMarker.length();
-        int endPos = normalized.find(endMarker, startPos);
-        if (endPos != -1)
-            return normalized.substr(startPos, endPos - startPos).Trim();
+    array<string> lines;
+    SplitLines(normalized, lines);
+
+    string result = "";
+    bool startSection = false;
+    for (uint i = 0; i < lines.length(); i++) {
+        string line = lines[i];
+        if (!startSection) {
+            if (line.Trim() == separator) {
+                startSection = true;
+                separatorFound = true;
+            }
+        } else {
+            if (result.length() > 0)
+                result += "\n";
+            result += line;
+        }
     }
 
-    if (startMarker != "")
-        normalized.replace(startMarker, "");
-    if (endMarker != "")
-        normalized.replace(endMarker, "");
+    if (separatorFound)
+        return result.Trim();
+
+    if (startMarker != "" && endMarker != "") {
+        int startPos = normalized.find(startMarker);
+        if (startPos != -1) {
+            startPos += startMarker.length();
+            int endPos = normalized.find(endMarker, startPos);
+            if (endPos != -1)
+                return normalized.substr(startPos, endPos - startPos).Trim();
+        }
+    }
 
     return normalized.Trim();
 }
@@ -801,8 +837,9 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     }
 
     if (translation != "") {
-        string resolved = ExtractDoubaoTranslation(translation, startMarker, endMarker);
-        if (resolved != "")
+        bool separatorFound = false;
+        string resolved = ExtractDoubaoTranslation(translation, startMarker, endMarker, separatorFound);
+        if (separatorFound)
             translation = resolved;
         else
             translation = translation.Trim();
