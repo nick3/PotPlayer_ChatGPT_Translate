@@ -365,8 +365,7 @@ string ServerLogin(string User, string Pass) {
     string escapedTestUserMsg = JsonEscape(testUserMsg);
     string testRequestData = "{\"model\":\"" + userModel + "\"," 
                              "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedTestSystemMsg + "\"}," 
-                             "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}]," 
-                             "\"max_completion_tokens\":1}";
+                             "{\"role\":\"user\",\"content\":\"" + escapedTestUserMsg + "\"}]}";
     string testResponse = HostUrlGetString(apiUrlLocal, UserAgent, verifyHeaders, testRequestData);
     if (testResponse != "") {
         JsonReader testReader;
@@ -685,8 +684,7 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
 
     string requestData = "{\"model\":\"" + selected_model + "\"," 
                          "\"messages\":[{\"role\":\"system\",\"content\":\"" + escapedSystemMsg + "\"}," 
-                         "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}]," 
-                         "\"max_completion_tokens\":1000}";
+                         "{\"role\":\"user\",\"content\":\"" + escapedUserMsg + "\"}]}";
 
     string headers = "Authorization: Bearer " + api_key + "\nContent-Type: application/json";
     int delayInt = ParseInt(delay_ms);
