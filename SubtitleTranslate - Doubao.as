@@ -61,7 +61,7 @@ string pre_selected_model = "doubao-seed-translation"; // will be replaced durin
 string pre_apiUrl = "https://api.openai.com/v1/chat/completions"; // will be replaced during installation
 string pre_delay_ms = "0"; // will be replaced during installation
 string pre_retry_mode = "0"; // will be replaced during installation
-string pre_context_token_budget = "6000"; // approx. tokens reserved for context (0 = auto)
+string pre_context_token_budget = "1024"; // approx. tokens reserved for context (0 = auto)
 string pre_context_truncation_mode = "drop_oldest"; // drop_oldest | smart_trim
 string pre_context_cache_mode = "auto"; // auto | off
 string pre_model_token_limits_json = "{}"; // serialized token limit rules (injected by installer)
