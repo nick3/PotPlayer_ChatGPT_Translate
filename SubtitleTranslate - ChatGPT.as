@@ -83,6 +83,7 @@ int default_model_token_limit = 4096;
 array<string> token_rule_types;
 array<string> token_rule_values;
 array<int> token_rule_limits;
+const int CHATGPT_CONTEXT_TOKEN_CAP = 256; // Upper bound for subtitle context tokens sent to the LLM
 
 // Helper functions to load configuration while respecting installer defaults
 string BuildConfigSentinel(const string &in key) {
@@ -573,6 +574,8 @@ string Translate(string Text, string &in SrcLang, string &in DstLang) {
     int configuredBudget = ParseInt(context_token_budget);
     if (configuredBudget <= 0 || configuredBudget > safeBudget)
         configuredBudget = safeBudget;
+    if (configuredBudget > CHATGPT_CONTEXT_TOKEN_CAP)
+        configuredBudget = CHATGPT_CONTEXT_TOKEN_CAP;
 
     string truncMode = context_truncation_mode;
     bool useSmartTrim = EqualsIgnoreCase(truncMode, "smart_trim");

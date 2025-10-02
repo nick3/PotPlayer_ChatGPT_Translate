@@ -84,7 +84,7 @@ array<string> token_rule_types;
 array<string> token_rule_values;
 array<int> token_rule_limits;
 const string DOUBAO_TARGET_SEPARATOR = "%%";
-const int DOUBAO_PROMPT_TOKEN_CAP = 256; // Doubao models stay responsive with compact user payloads
+const int DOUBAO_PROMPT_TOKEN_CAP = 192; // Doubao models stay responsive with compact user payloads
 
 // Helper functions to load configuration while respecting installer defaults
 string BuildConfigSentinel(const string &in key) {
